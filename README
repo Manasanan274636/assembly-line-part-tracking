@@ -27,14 +27,14 @@ ASSEMBLY-LINE-PART-TRACKING/
 
 สร้างไฟล์ .env จาก .env.example หรือเปลี่ยนชื่อไฟล์นี้ได้เลย และแก้ไขค่าตามสภาพแวดล้อมที่ใช้งาน
 ```bash
-FLASK_ENV=development
-SECRET_KEY=your-secret-key
+; FLASK_ENV=development
+; SECRET_KEY=your-secret-key
 
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=assembly_line_db
-DB_USER=root
-DB_PASSWORD=password
+; DB_HOST=localhost
+; DB_PORT=3306
+; DB_NAME=assembly_line_db
+; DB_USER=root
+; DB_PASSWORD=password
 ```
 
 วิธีติดตั้งและรันระบบ (Installation & Setup)
@@ -46,11 +46,13 @@ cd ASSEMBLY-LINE-PART-TRACKING
 2. สร้าง Virtual Environment
 ```bash
 python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+source venv/bin/activate   
+# Windows: venv\Scripts\activate
 ```
 3. ติดตั้ง Library
 ```bash
 pip install -r requirements.txt
+.env.example แก้ชื่อเป็น .env
 ```
 4. ตั้งค่า Database และ Migration
 ```bash

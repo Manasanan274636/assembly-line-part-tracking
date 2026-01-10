@@ -1,0 +1,26 @@
+{% extends "layout/base.html" %}
+
+{% block title %}Production Plan{% endblock %}
+
+{% block content %}
+<h3>Production Plan</h3>
+
+<table class="table table-bordered mt-3">
+    <thead>
+        <tr>
+            <th>Order ID</th>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>PO-001</td>
+            <td>Engine Assembly</td>
+            <td>150</td>
+            <td>In Progress</td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}

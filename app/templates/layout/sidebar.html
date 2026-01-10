@@ -1,0 +1,35 @@
+<aside class="sidebar" id="sidebar">
+  <nav>
+    <a href="/dashboard" class="menu-item active">📊 Dashboard</a>
+    <a href="/production" class="menu-item">📋 Production Plan</a>
+    <a href="/consumption" class="menu-item">📉 Consumption</a>
+    <a href="/stock" class="menu-item">📦 Stock Status</a>
+
+    {% if current_user.role == "admin" %}
+    <a href="/reports" class="menu-item">📄 Reports</a>
+    {% endif %}
+  </nav>
+</aside>
+
+<style>
+  /* Sidebar toggle */
+  .sidebar {
+    transition: width 0.3s ease;
+  }
+
+  /* ตอนพับ */
+  .sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Main content ปรับตาม sidebar */
+  .main-content {
+    transition: margin-left 0.3s ease;
+  }
+
+  .main-content.collapsed {
+    margin-left: 0;
+  }
+</style>
