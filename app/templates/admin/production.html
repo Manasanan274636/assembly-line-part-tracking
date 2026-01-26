@@ -132,7 +132,7 @@
       <div class="table-responsive">
         <table class="table mb-0">
           <thead style="background-color: #fcfdfe">
-            <tr>
+            <tr class="premium-header-row">
               <th
                 class="ps-4 py-3 border-0 text-secondary"
                 style="font-size: 12px; font-weight: 500; text-transform: none"
@@ -291,6 +291,18 @@
   }
   .table thead th {
     border: none;
+  }
+  .premium-header-row {
+    position: relative;
+  }
+  .premium-header-row::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    background-color: #e2e8f0;
   }
 </style>
 {% endblock %}
