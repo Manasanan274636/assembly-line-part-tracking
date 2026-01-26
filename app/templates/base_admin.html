@@ -57,9 +57,6 @@
       .nav-pill-custom.active-pill {
         background-color: #0f172a !important;
         color: #ffffff !important;
-        box-shadow:
-          0 4px 6px -1px rgba(0, 0, 0, 0.1),
-          0 2px 4px -1px rgba(0, 0, 0, 0.06);
       }
     </style>
   </head>
@@ -156,10 +153,13 @@
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="3" y1="9" x2="21" y2="9"></line>
-                  <line x1="9" y1="21" x2="9" y2="9"></line>
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
                 Dashboard
               </a>
@@ -199,6 +199,8 @@
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
                   <path
                     d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
@@ -211,6 +213,7 @@
                 Production Plan
               </a>
             </li>
+            <!-- Hidden for now as per user request
             <li class="nav-item">
               <a
                 class="nav-pill-custom {% if request.endpoint == 'admin.consumption' %}active-pill{% endif %}"
@@ -249,6 +252,7 @@
                 Stock Status
               </a>
             </li>
+            -->
             <li class="nav-item">
               <a
                 class="nav-pill-custom {% if request.endpoint == 'admin.reports' %}active-pill{% endif %}"
@@ -261,11 +265,13 @@
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
                   <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
                 </svg>
-                Analytical Reports
+                Reports
               </a>
             </li>
           </ul>
