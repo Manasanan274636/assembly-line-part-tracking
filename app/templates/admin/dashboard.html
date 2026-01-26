@@ -1,0 +1,484 @@
+{% extends "base_admin.html" %} {% block title %}Dashboard{% endblock %} {%
+block content %}
+<div class="py-4">
+  <!-- KPI Dashboard Cards -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-3">
+      <div
+        class="card h-100 border-0 shadow-sm p-4"
+        style="border-radius: 12px; position: relative"
+      >
+        <div
+          class="p-2 bg-light rounded-circle"
+          style="position: absolute; top: 20px; right: 20px"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#64748b"
+            stroke-width="1.5"
+          >
+            <path
+              d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+            ></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+        <div class="text-secondary small fw-medium mb-2">Total Parts</div>
+        <h2
+          class="fw-bold mb-1"
+          style="font-size: 28px; letter-spacing: -0.5px"
+        >
+          {{ total_parts }}
+        </h2>
+        <div class="text-muted small">In current inventory</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div
+        class="card h-100 border-0 shadow-sm p-4"
+        style="border-radius: 12px; position: relative"
+      >
+        <div
+          class="p-2 bg-warning-subtle rounded-circle"
+          style="position: absolute; top: 20px; right: 20px"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#d97706"
+            stroke-width="1.5"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            ></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <div class="text-secondary small fw-medium mb-2">Low Stock Items</div>
+        <h2
+          class="fw-bold mb-1 text-warning"
+          style="
+            font-size: 28px;
+            letter-spacing: -0.5px;
+            color: #d97706 !important;
+          "
+        >
+          {{ low_stock_count }}
+        </h2>
+        <div class="text-muted small">Needs attention</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div
+        class="card h-100 border-0 shadow-sm p-4"
+        style="border-radius: 12px; position: relative"
+      >
+        <div
+          class="p-2 bg-danger-subtle rounded-circle"
+          style="position: absolute; top: 20px; right: 20px"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#dc2626"
+            stroke-width="1.5"
+          >
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            ></path>
+          </svg>
+        </div>
+        <div class="text-secondary small fw-medium mb-2">Scrap Count</div>
+        <h2
+          class="fw-bold mb-1 text-danger"
+          style="
+            font-size: 28px;
+            letter-spacing: -0.5px;
+            color: #dc2626 !important;
+          "
+        >
+          {{ scrap_count }}
+        </h2>
+        <div class="text-muted small">Today's shift</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div
+        class="card h-100 border-0 shadow-sm p-4"
+        style="
+          border-radius: 12px;
+          position: relative;
+          box-shadow:
+            0 1px 3px 0 rgba(0, 0, 0, 0.1),
+            0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+        "
+      >
+        <div
+          class="p-2 bg-primary-subtle rounded-circle"
+          style="position: absolute; top: 20px; right: 20px"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#dc2626"
+            stroke-width="1.5"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div class="text-secondary small fw-medium mb-2">Active Alerts</div>
+        <h2
+          class="fw-bold mb-1 text-danger"
+          style="
+            font-size: 28px;
+            letter-spacing: -0.5px;
+            color: #dc2626 !important;
+          "
+        >
+          {{ active_alerts }}
+        </h2>
+        <div class="text-muted small">Requires action</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Critical Alerts Section -->
+  <div
+    class="card border-0 shadow-sm mb-4"
+    style="
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+    "
+  >
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+      <h5
+        class="fw-bold"
+        style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px"
+      >
+        Critical Alerts & Notifications
+      </h5>
+    </div>
+    <div class="card-body p-4">
+      {% for alert in alerts %}
+      <div
+        class="alert {% if alert.level == 'CRITICAL' %}alert-danger-custom{% elif alert.level == 'WARNING' %}alert-warning-custom{% else %}alert-info-custom{% endif %} border-0 d-flex justify-content-between align-items-center mb-3 p-3"
+        style="border-radius: 12px; border: 1px solid transparent"
+      >
+        <div class="d-flex align-items-center gap-3">
+          <div
+            class="alert-icon-wrapper rounded-circle d-flex align-items-center justify-content-center"
+            style="
+              width: 32px;
+              height: 32px;
+              background: rgba(255, 255, 255, 0.6);
+            "
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              ></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div>
+            <div
+              class="fw-bold"
+              style="font-size: 13px; color: inherit; margin-bottom: 2px"
+            >
+              {% if alert.level == 'CRITICAL' %}CRITICAL: {% elif alert.level ==
+              'WARNING' %}Warning: {% else %}Info: {% endif %} {{ alert.title }}
+            </div>
+            <div style="font-size: 12px; opacity: 0.8; font-weight: 400">
+              {{ alert.message }}
+            </div>
+          </div>
+        </div>
+        <div class="small fw-medium" style="font-size: 11px; opacity: 0.6">
+          {{ alert.time }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Parts Inventory & Usage -->
+  <div
+    class="card border-0 shadow-sm mb-4"
+    style="border-radius: 12px; background: #ffffff"
+  >
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+      <h5
+        class="fw-bold"
+        style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px"
+      >
+        Parts Inventory & Usage
+      </h5>
+    </div>
+    <div class="card-body p-4">
+      <div class="table-responsive">
+        <table
+          class="table table-hover align-middle mb-0"
+          style="border-collapse: separate; border-spacing: 0"
+        >
+          <thead>
+            <tr style="border-bottom: 1px solid #f1f5f9">
+              <th
+                class="border-0 py-3 ps-4"
+                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+              >
+                Part Name
+              </th>
+              <th
+                class="text-center border-0 py-3"
+                style="
+                  font-size: 12px;
+                  font-weight: 500;
+                  color: #8a7b6a;
+                  line-height: 1.2;
+                "
+              >
+                Required Qty<br /><span style="font-size: 10px; opacity: 0.8"
+                  >(from Plan)</span
+                >
+              </th>
+              <th
+                class="text-center border-0 py-3"
+                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+              >
+                Actual Used
+              </th>
+              <th
+                class="text-center border-0 py-3"
+                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+              >
+                Scrap
+              </th>
+              <th
+                class="text-center border-0 py-3"
+                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+              >
+                Remaining Stock
+              </th>
+              <th
+                class="text-center border-0 py-3 pe-4"
+                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+              >
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody class="border-top-0">
+            {% for item in inventory_usage %}
+            <tr style="border-bottom: 1px solid #f8fafc">
+              <td class="py-3 ps-4">
+                <div
+                  class="fw-semibold text-dark"
+                  style="font-size: 14px; letter-spacing: -0.2px"
+                >
+                  {{ item.name }}
+                </div>
+                <div class="text-muted" style="font-size: 11px">
+                  {{ item.sku }}
+                </div>
+              </td>
+              <td class="text-center py-3" style="font-size: 13px; color: #444">
+                {{ item.required_qty }}
+              </td>
+              <td
+                class="text-center py-3"
+                style="font-size: 13px; color: {% if item.actual_used > item.required_qty %}#dc2626{% else %}#444{% endif %};"
+              >
+                {{ item.actual_used }}
+              </td>
+              <td class="text-center py-3" style="font-size: 13px; color: #444">
+                {{ item.scrap }}
+              </td>
+              <td
+                class="text-center py-3 fw-bold"
+                style="font-size: 13px; color: {% if item.remaining_stock < 50 %}#dc2626{% else %}#1e293b{% endif %};"
+              >
+                {{ item.remaining_stock }}
+              </td>
+              <td class="text-center py-3 pe-4">
+                <span
+                  class="badge-pill-custom {% if item.status == 'OK' %}badge-ok{% elif item.status == 'Low Stock' %}badge-low{% else %}badge-critical{% endif %}"
+                >
+                  {{ item.status }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart - Planned vs Actual -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+      <h5 class="fw-bold" style="font-size: 16px">
+        Planned vs Actual Consumption
+      </h5>
+    </div>
+    <div class="card-body p-4">
+      <div style="height: 300px">
+        <canvas id="consumptionChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+      const ctx = document.getElementById('consumptionChart').getContext('2d');
+      new Chart(ctx, {
+          type: 'bar',
+          data: {
+              labels: {{ chart_data.labels|tojson }},
+              datasets: [
+                  {
+                      label: 'Planned',
+                      data: {{ chart_data.planned|tojson }},
+                      backgroundColor: '#6b7280', // Exact Gray from Figma
+                      borderRadius: 2
+                  },
+                  {
+                      label: 'Actual',
+                      data: {{ chart_data.actual|tojson }},
+                      backgroundColor: '#3b82f6', // Exact Blue from Figma
+                      borderRadius: 2
+                  }
+              ]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                  y: {
+                      beginAtZero: true,
+                      border: { display: false },
+                      grid: {
+                          drawBorder: false,
+                          color: '#f1f5f9',
+                          lineWidth: 1
+                      },
+                      ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 }
+                      }
+                  },
+                  x: {
+                      border: { display: false },
+                      grid: { display: false },
+                      ticks: {
+                        color: '#64748b',
+                        font: { size: 11 }
+                      }
+                  }
+              },
+              plugins: {
+                  legend: {
+                      position: 'bottom',
+                      labels: {
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded',
+                        font: { size: 12, weight: '500' },
+                        padding: 20
+                      }
+                  }
+              }
+          }
+      });
+  });
+</script>
+
+<style>
+  .x-small {
+    font-size: 0.75rem;
+  }
+
+  /* Custom Alert Colors from Figma */
+  .alert-danger-custom {
+    background-color: #fff1f2;
+    color: #dc2626;
+    border: 1px solid #fecaca !important;
+  }
+  .alert-warning-custom {
+    background-color: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fef3c7 !important;
+  }
+  .alert-info-custom {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #dbeafe !important;
+  }
+
+  /* Badge Styles from Figma - Matching exactly */
+  .badge-pill-custom {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+    letter-spacing: 0.2px;
+  }
+  .badge-ok {
+    background-color: #f0fdf4;
+    color: #16a34a;
+  }
+  .badge-ok::before {
+    content: "✓ ";
+    font-weight: bold;
+  }
+
+  .badge-low {
+    background-color: #fffbeb;
+    color: #d97706;
+  }
+
+  .badge-critical {
+    background-color: #fef2f2;
+    color: #dc2626;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .bg-light {
+    background-color: #f8fafc !important;
+  }
+  .bg-primary-subtle {
+    background-color: #eff6ff !important;
+  }
+  .bg-warning-subtle {
+    background-color: #fffbeb !important;
+  }
+  .bg-danger-subtle {
+    background-color: #fef2f2 !important;
+  }
+</style>
+{% endblock %}

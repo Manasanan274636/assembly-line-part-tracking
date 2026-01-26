@@ -1,0 +1,21 @@
+from app.utils.db import db
+from datetime import datetime
+
+class ProductionPlan(db.Model):
+    __tablename__ = 'production_plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    station_id = db.Column(db.Integer, db.ForeignKey('stations.id'), nullable=False)
+    project_title = db.Column(db.String(200), nullable=False)
+    target_date = db.Column(db.Date)
+    planned_qty = db.Column(db.Integer, default=0)
+    actual_output = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(50), default='In Progress') # In Progress, Completed, On Hold
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    bom_items = db.relationship('BOM', backref='plan', lazy=True)
+    consumptions = db.relationship('Consumption', backref='plan', lazy=True)
+
+    def __repr__(self):
+        return f'<ProductionPlan {self.project_title}>'

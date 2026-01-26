@@ -1,0 +1,792 @@
+{% extends "base_operator.html" %} {% block title %}Production Plan{% endblock
+%} {% block content %}
+<div class="mb-4">
+  <h1 class="page-title">Production Plan & BOM</h1>
+  <p class="page-subtitle">Manage production orders and bill of materials</p>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="p-4 d-flex gap-3 align-items-center justify-content-between">
+    <div class="input-group flex-grow-1">
+      <span class="input-group-text bg-white border-end-0 text-muted">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <input
+        type="text"
+        class="form-control border-start-0 ps-0"
+        placeholder="Search by order ID or product..."
+      />
+    </div>
+    <div class="position-relative">
+      <button
+        id="dateFilterBtn"
+        class="btn btn-primary d-flex align-items-center gap-2 text-nowrap flex-shrink-0"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polygon
+            points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
+          ></polygon>
+        </svg>
+        <span id="filterBtnText">Filter by Date</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Order Modal -->
+<div class="modal fade" id="createOrderModal" tabindex="-1" aria-hidden="true">
+  <div
+    class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"
+  >
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold">Create New Order</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="createOrderForm">
+          <div class="mb-3">
+            <label class="form-label text-muted small fw-medium"
+              >Order ID</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              placeholder="e.g. PO-2024-005"
+            />
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted small fw-medium"
+              >Product Name</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              placeholder="e.g. Suspension Kit"
+            />
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted small fw-medium"
+                >Quantity</label
+              >
+              <input type="number" class="form-control" placeholder="0" />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted small fw-medium">Line</label>
+              <select class="form-select">
+                <option>Line 01</option>
+                <option>Line 02</option>
+                <option>Line 03</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted small fw-medium"
+                >Start Date</label
+              >
+              <div class="input-group">
+                <span class="input-group-text bg-white text-muted"
+                  ><svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect
+                      x="3"
+                      y="4"
+                      width="18"
+                      height="18"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line></svg
+                ></span>
+                <input
+                  type="text"
+                  class="form-control flatpickr-input"
+                  placeholder="Select date"
+                />
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted small fw-medium"
+                >End Date</label
+              >
+              <div class="input-group">
+                <span class="input-group-text bg-white text-muted"
+                  ><svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect
+                      x="3"
+                      y="4"
+                      width="18"
+                      height="18"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line></svg
+                ></span>
+                <input
+                  type="text"
+                  class="form-control flatpickr-input"
+                  placeholder="Select date"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bomber Section -->
+          <div class="mt-4 border-top pt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0">Bill of Materials (BOM)</h6>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+                id="addBomRowBtn"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Part
+              </button>
+            </div>
+
+            <div
+              class="table-responsive border rounded bg-light"
+              style="max-height: 250px; overflow-y: auto"
+            >
+              <table
+                class="table table-sm table-hover mb-0"
+                style="font-size: 13px"
+              >
+                <thead class="sticky-top">
+                  <tr>
+                    <th class="ps-3" style="width: 20%">Part Number</th>
+                    <th style="width: 25%">Description</th>
+                    <th style="width: 15%">Req Qty</th>
+                    <th style="width: 15%">Unit</th>
+                    <th class="text-center" style="width: 15%">Available</th>
+                    <th class="text-center" style="width: 10%">Status</th>
+                    <th class="text-center" style="width: 5%"></th>
+                  </tr>
+                </thead>
+                <tbody id="createBomTableBody" class="bg-white">
+                  <!-- Rows will be added here -->
+                </tbody>
+              </table>
+            </div>
+            <div class="form-text mt-2 text-muted fst-italic">
+              <small
+                >* "Available" and "Status" will be auto-calculated based on
+                Part Number.</small
+              >
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+        <button
+          type="button"
+          class="btn btn-light text-muted"
+          data-bs-dismiss="modal"
+        >
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary px-4">Create Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Init Filter Date Picker
+    flatpickr("#dateFilterBtn", {
+      dateFormat: "Y-m-d", // Match the format in the table (YYYY-MM-DD)
+      disableMobile: "true", // Force custom picker even on mobile
+      onChange: function (selectedDates, dateStr, instance) {
+        filterTableByDate(dateStr);
+      },
+    });
+
+    // Init Modal Date Pickers
+    flatpickr(".flatpickr-input", {
+      dateFormat: "Y-m-d",
+      disableMobile: "true",
+      allowInput: true,
+    });
+
+    // BOM Logic: Add Row
+    const bomBody = document.getElementById("createBomTableBody");
+    document
+      .getElementById("addBomRowBtn")
+      .addEventListener("click", function () {
+        const row = document.createElement("tr");
+        row.className = "align-middle";
+        row.innerHTML = `
+             <td class="ps-3"><input type="text" class="form-control form-control-sm border-0 bg-transparent p-0" placeholder="Type Part No."></td>
+             <td><input type="text" class="form-control form-control-sm border-0 bg-transparent p-0" placeholder="Description"></td>
+             <td><input type="number" class="form-control form-control-sm border-0 bg-transparent p-0" placeholder="0"></td>
+             <td>
+                <select class="form-select form-select-sm border-0 bg-transparent p-0" style="width: 70px;">
+                   <option>pcs</option>
+                   <option>kg</option>
+                   <option>set</option>
+                </select>
+             </td>
+             <td class="text-center text-muted small">Checking...</td>
+             <td class="text-center text-muted small">-</td>
+             <td class="text-center">
+                <button type="button" class="btn btn-link text-danger p-0 delete-row">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+             </td>
+        `;
+        bomBody.appendChild(row);
+      });
+
+    // BOM Logic: Delete Row
+    bomBody.addEventListener("click", function (e) {
+      if (e.target.closest(".delete-row")) {
+        e.target.closest("tr").remove();
+      }
+    });
+
+    // Add initial empty row
+    document.getElementById("addBomRowBtn").click();
+  });
+
+  function filterTableByDate(date) {
+    const tableBody = document.querySelector("tbody");
+    const rows = tableBody.querySelectorAll("tr.align-middle");
+    const btnText = document.getElementById("filterBtnText");
+
+    if (!date) {
+      btnText.textContent = "Filter by Date";
+      rows.forEach((row) => row.classList.remove("d-none"));
+      return;
+    }
+
+    // Format the date for display (e.g. 12/21/2024 or local format)
+    // But keep the 'date' param as YYYY-MM-DD for comparison
+    const displayDate = new Date(date).toLocaleDateString();
+    btnText.textContent = displayDate;
+
+    rows.forEach((row) => {
+      // Assume Start Date is in the 4th column (index 3)
+      // Table date format is YYYY-MM-DD (e.g., 2024-12-21)
+      const dateCell = row.children[3].textContent.trim();
+
+      if (dateCell === date) {
+        row.classList.remove("d-none");
+      } else {
+        row.classList.add("d-none");
+      }
+    });
+  }
+</script>
+
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
+  <div
+    class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center"
+  >
+    <h5 class="card-title mb-0" style="font-size: 16px">Production Orders</h5>
+    <button
+      class="btn btn-primary d-flex align-items-center gap-2"
+      data-bs-toggle="modal"
+      data-bs-target="#createOrderModal"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Create Order
+    </button>
+  </div>
+  <div class="table-responsive">
+    <table class="table mb-0" style="font-size: 13px">
+      <thead>
+        <tr>
+          <th class="ps-4">Order ID</th>
+          <th>Product</th>
+          <th>Quantity</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th class="text-center">Status</th>
+          <th>Progress</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="align-middle border-bottom">
+          <td class="ps-4">PO-2024-001</td>
+          <td>Engine Assembly ENG-450</td>
+          <td>150</td>
+          <td>2024-12-21</td>
+          <td>2024-12-23</td>
+          <td class="text-center">
+            <span
+              class="badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-weight: 500; width: 100px; border-radius: 10px"
+              ><svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline></svg
+              >In Progress</span
+            >
+          </td>
+          <td style="width: 120px">
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height: 6px">
+                <div class="progress-bar" style="width: 65%"></div>
+              </div>
+              <span class="text-muted" style="font-size: 11px">65%</span>
+            </div>
+          </td>
+          <td class="text-center">
+            <button
+              class="btn btn-link text-muted p-0 view-bom"
+              data-order="PO-2024-001"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </td>
+        </tr>
+        <tr class="align-middle border-bottom">
+          <td class="ps-4">PO-2024-002</td>
+          <td>Transmission Unit TR-300</td>
+          <td>200</td>
+          <td>2024-12-22</td>
+          <td>2024-12-25</td>
+          <td class="text-center">
+            <span
+              class="badge bg-secondary bg-opacity-10 text-secondary d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-weight: 500; width: 100px; border-radius: 10px"
+              ><svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line></svg
+              >Scheduled</span
+            >
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height: 6px">
+                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+              </div>
+              <span class="text-muted" style="font-size: 11px">0%</span>
+            </div>
+          </td>
+          <td class="text-center">
+            <button
+              class="btn btn-link text-muted p-0 view-bom"
+              data-order="PO-2024-002"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </td>
+        </tr>
+        <tr class="align-middle border-bottom">
+          <td class="ps-4">PO-2024-003</td>
+          <td>Brake System BS-200</td>
+          <td>300</td>
+          <td>2024-12-20</td>
+          <td>2024-12-21</td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-weight: 500; width: 100px; border-radius: 10px"
+              ><svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline></svg
+              >Completed</span
+            >
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height: 6px">
+                <div class="progress-bar bg-success" style="width: 100%"></div>
+              </div>
+              <span class="text-muted" style="font-size: 11px">100%</span>
+            </div>
+          </td>
+          <td class="text-center">
+            <button
+              class="btn btn-link text-muted p-0 view-bom"
+              data-order="PO-2024-003"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </td>
+        </tr>
+        <tr class="align-middle">
+          <td class="ps-4">PO-2024-004</td>
+          <td>Suspension Kit SK-150</td>
+          <td>180</td>
+          <td>2024-12-21</td>
+          <td>2024-12-24</td>
+          <td class="text-center">
+            <span
+              class="badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-weight: 500; width: 100px; border-radius: 10px"
+              ><svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline></svg
+              >In Progress</span
+            >
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height: 6px">
+                <div class="progress-bar" style="width: 40%"></div>
+              </div>
+              <span class="text-muted" style="font-size: 11px">40%</span>
+            </div>
+          </td>
+          <td class="text-center">
+            <button
+              class="btn btn-link text-muted p-0 view-bom"
+              data-order="PO-2024-004"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- BOM Detail Section (Hidden by default) -->
+<div id="bom-section" class="card border-0 shadow-sm overflow-hidden d-none">
+  <div
+    class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center"
+  >
+    <div>
+      <h5 class="card-title mb-1" style="font-size: 16px">Bill of Materials</h5>
+      <div id="bom-order-id" class="text-muted small">Order: PO-2024-001</div>
+    </div>
+    <button
+      id="close-bom"
+      class="btn btn-link text-muted text-decoration-none small p-0"
+    >
+      Close
+    </button>
+  </div>
+  <div class="table-responsive">
+    <table class="table mb-0" style="font-size: 13px">
+      <thead>
+        <tr>
+          <th class="ps-4">Part Number</th>
+          <th>Description</th>
+          <th>Required Qty</th>
+          <th>Unit</th>
+          <th>Available Stock</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="bom-table-body">
+        <!-- Data will be populated by JS -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const bomData = {
+    "PO-2024-001": [
+      {
+        id: "A-3421",
+        desc: "Main Shaft",
+        req: 2,
+        unit: "pcs",
+        stock: 450,
+        status: "Adequate",
+      },
+      {
+        id: "B-1234",
+        desc: "Bearing Set",
+        req: 4,
+        unit: "pcs",
+        stock: 180,
+        status: "Adequate",
+      },
+      {
+        id: "C-5678",
+        desc: "Gasket Kit",
+        req: 1,
+        unit: "set",
+        stock: 120,
+        status: "Adequate",
+      },
+      {
+        id: "D-9012",
+        desc: "Oil Seal",
+        req: 6,
+        unit: "pcs",
+        stock: 1500,
+        status: "Adequate",
+      },
+      {
+        id: "E-3456",
+        desc: "Bolt Set M12",
+        req: 8,
+        unit: "pcs",
+        stock: 2400,
+        status: "Adequate",
+      },
+    ],
+    "PO-2024-002": [
+      {
+        id: "G-2345",
+        desc: "Transmission Case",
+        req: 1,
+        unit: "pcs",
+        stock: 50,
+        status: "Adequate",
+      },
+      {
+        id: "H-6789",
+        desc: "Gear Set",
+        req: 1,
+        unit: "set",
+        stock: 30,
+        status: "Low",
+      },
+    ],
+    "PO-2024-003": [
+      {
+        id: "I-1011",
+        desc: "Brake Pad",
+        req: 4,
+        unit: "pcs",
+        stock: 500,
+        status: "Adequate",
+      },
+      {
+        id: "J-1213",
+        desc: "Brake Disc",
+        req: 2,
+        unit: "pcs",
+        stock: 200,
+        status: "Adequate",
+      },
+    ],
+    "PO-2024-004": [
+      {
+        id: "K-1415",
+        desc: "Shock Absorber",
+        req: 4,
+        unit: "pcs",
+        stock: 10,
+        status: "Critical",
+      },
+      {
+        id: "L-1617",
+        desc: "Control Arm",
+        req: 2,
+        unit: "pcs",
+        stock: 40,
+        status: "Adequate",
+      },
+    ],
+  };
+
+  const bomSection = document.getElementById("bom-section");
+  const bomOrderText = document.getElementById("bom-order-id");
+  const bomTableBody = document.getElementById("bom-table-body");
+  const closeBomBtn = document.getElementById("close-bom");
+
+  document.querySelectorAll(".view-bom").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const orderId = btn.getAttribute("data-order");
+      const data = bomData[orderId];
+
+      if (data) {
+        bomOrderText.innerText = `Order: ${orderId}`;
+        bomTableBody.innerHTML = "";
+
+        data.forEach((item) => {
+          const statusClass =
+            item.status === "Adequate"
+              ? "text-success"
+              : item.status === "Low"
+                ? "text-warning"
+                : "text-danger";
+          const bgClass =
+            item.status === "Adequate"
+              ? "bg-success"
+              : item.status === "Low"
+                ? "bg-warning"
+                : "bg-danger";
+
+          const icon =
+            item.status === "Adequate"
+              ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+              : item.status === "Low"
+                ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><polyline points="17 6 23 6 23 12"></polyline></svg>'
+                : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+
+          const row = `
+                        <tr class="align-middle border-bottom">
+                            <td class="ps-4 fw-medium">${item.id}</td>
+                            <td>${item.desc}</td>
+                            <td>${item.req}</td>
+                            <td>${item.unit}</td>
+                            <td>${item.stock}</td>
+                            <td class="text-center">
+                                <span class="badge ${bgClass} bg-opacity-10 ${statusClass} d-inline-flex align-items-center justify-content-start ps-2" style="font-size: 11px; width: 100px; border-radius: 10px">
+                                    ${icon}${item.status}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+          bomTableBody.innerHTML += row;
+        });
+
+        bomSection.classList.remove("d-none");
+        bomSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+
+  closeBomBtn.addEventListener("click", () => {
+    bomSection.classList.add("d-none");
+  });
+</script>
+{% endblock %}

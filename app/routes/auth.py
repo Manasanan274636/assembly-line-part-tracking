@@ -11,16 +11,29 @@ def index():
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        print(f"DEBUG: Login Attempt for user: {request.form.get('username')}")
         username = request.form["username"]
+        password = request.form["password"]
 
-        # mock user
-        if username == "admin":
-            user = User("1", "admin", "admin")
-        else:
-            user = User("2", "operator", "operator")
+        from sqlalchemy import or_
+        user = User.query.filter(or_(User.username == username, User.email == username)).first()
+        print(f"DEBUG: User found: {user}")
 
-        login_user(user)
-        return redirect(url_for("dashboard.index"))
+        if user and user.check_password(password):
+            print("DEBUG: Password check passed")
+            login_user(user)
+            
+            # Role-based redirection
+            if user.role == 'admin':
+                return redirect(url_for("admin.index"))
+            elif user.role == 'operator':
+                return redirect(url_for("operator.index"))
+            else:
+                return redirect(url_for("auth.login"))
+        
+        print("DEBUG: Login failed - Invalid credentials")
+        # If login fails
+        return render_template("auth/login.html", error="Invalid username or password")
 
     return render_template("auth/login.html")
 
