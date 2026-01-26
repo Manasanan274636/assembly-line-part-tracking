@@ -251,52 +251,52 @@ block content %}
           style="border-spacing: 0; width: 100%"
         >
           <thead>
-            <tr style="border-bottom: 1px solid #f1f5f9">
+            <tr style="border-bottom: 1px solid #d4d4d4">
               <th
-                class="border-0 py-3 text-start"
+                class="border-0 py-2 text-start"
                 style="
-                  font-size: 11px;
-                  font-weight: 500;
-                  color: #8a7b6a;
+                  font-size: 12px;
+                  font-weight: 400;
+                  color: #000000;
                   width: 30%;
                 "
               >
                 Part Name
               </th>
               <th
-                class="text-center border-0 py-3"
+                class="text-end border-0 py-2"
                 style="
-                  font-size: 11px;
-                  font-weight: 500;
-                  color: #8a7b6a;
+                  font-size: 12px;
+                  font-weight: 400;
+                  color: #000000;
                   line-height: 1.2;
                 "
               >
-                Required Qty<br /><span style="font-size: 9px; opacity: 0.7"
+                Required Qty<br /><span style="font-size: 12px"
                   >(from Plan)</span
                 >
               </th>
               <th
-                class="text-center border-0 py-3"
-                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
+                class="text-end border-0 py-2"
+                style="font-size: 12px; font-weight: 400; color: #000000"
               >
                 Actual Used
               </th>
               <th
-                class="text-center border-0 py-3"
-                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
+                class="text-end border-0 py-2"
+                style="font-size: 12px; font-weight: 400; color: #000000"
               >
                 Scrap
               </th>
               <th
-                class="text-center border-0 py-3"
-                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
+                class="text-end border-0 py-2"
+                style="font-size: 12px; font-weight: 400; color: #000000"
               >
                 Remaining Stock
               </th>
               <th
-                class="text-center border-0 py-3"
-                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
+                class="text-start border-0 py-2"
+                style="font-size: 12px; font-weight: 400; color: #000000"
               >
                 Status
               </th>
@@ -304,37 +304,37 @@ block content %}
           </thead>
           <tbody>
             {% for item in inventory_usage %}
-            <tr style="border-bottom: 1px solid #f8fafc">
-              <td class="py-3 text-start">
-                <span style="font-size: 13px; font-weight: 500; color: #1e293b"
+            <tr style="border-bottom: 1px solid #d4d4d4">
+              <td class="py-2 text-start">
+                <span style="font-size: 12px; color: #000000; font-weight: 400"
                   >{{ item.name }} {{ item.sku }}</span
                 >
               </td>
               <td
-                class="text-center py-3"
-                style="font-size: 12px; font-weight: 400; color: #334155"
+                class="text-end py-2"
+                style="font-size: 12px; color: #000000; font-weight: 400"
               >
                 {{ item.required_qty }}
               </td>
               <td
-                class="text-center py-3"
-                style="font-size: 12px; font-weight: 400; color: {% if item.actual_used > item.required_qty %}#d97706{% else %}#334155{% endif %};"
+                class="text-end py-2"
+                style="font-size: 12px; color: #000000; font-weight: 400"
               >
                 {{ item.actual_used }}
               </td>
               <td
-                class="text-center py-3"
-                style="font-size: 12px; font-weight: 400; color: #334155"
+                class="text-end py-2"
+                style="font-size: 12px; color: #000000; font-weight: 400"
               >
                 {{ item.scrap }}
               </td>
               <td
-                class="text-center py-3 fw-bold"
-                style="font-size: 12px; color: {% if item.remaining_stock < 50 %}#dc2626{% else %}#1e293b{% endif %};"
+                class="text-end py-2 fw-normal"
+                style="font-size: 12px; color: {% if item.status == 'CRITICAL' %}#dc2626{% elif item.status == 'Low Stock' %}#d97706{% else %}#000000{% endif %};"
               >
                 {{ item.remaining_stock }}
               </td>
-              <td class="text-center py-3">
+              <td class="text-start py-2">
                 <span
                   class="badge-pill-figma {% if item.status == 'OK' %}badge-figma-ok{% elif item.status == 'Low Stock' %}badge-figma-low{% else %}badge-figma-critical{% endif %}"
                 >
@@ -463,10 +463,6 @@ block content %}
   .badge-figma-ok {
     background-color: #f0fdf4;
     color: #16a34a;
-  }
-  .badge-figma-ok::before {
-    content: "✓ ";
-    font-weight: bold;
   }
 
   .badge-figma-low {
