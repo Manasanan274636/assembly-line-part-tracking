@@ -368,7 +368,57 @@ def download_template():
 @login_required
 @role_required("admin")
 def production():
-    return render_template("admin/production.html")
+    from app.models.production_plan import ProductionPlan
+    from app.models.bom import BOM
+    from app.models.part import Part
+    from sqlalchemy import func
+
+    # Find the active 'In Progress' plan
+    plan = ProductionPlan.query.filter_by(status="In Progress").first()
+    if not plan:
+        # Fallback to the latest one
+        plan = ProductionPlan.query.order_by(ProductionPlan.id.desc()).first()
+
+    bom_items = []
+    total_part_types = 0
+    total_items_required = 0
+
+    if plan:
+        # Get BOM for this plan
+        boms = BOM.query.filter_by(plan_id=plan.id).all()
+        total_part_types = len(boms)
+
+        for b in boms:
+            part = b.part_info
+            qty_per_unit = (
+                b.quantity_required / plan.planned_qty if plan.planned_qty > 0 else 1
+            )
+            calculated_required = b.quantity_required
+            total_items_required += calculated_required
+
+            bom_items.append(
+                {
+                    "part_code": part.sku,
+                    "part_name": part.name,
+                    "qty_per_unit": round(qty_per_unit, 2),
+                    "unit": part.unit or "pcs",
+                    "calculated_required": calculated_required,
+                }
+            )
+
+    # Mock data for Figma fields not in DB
+    shift_info = "Day Shift (06:00 - 18:00)"
+    product_name = plan.project_title if plan else "Industrial Motor Unit XM-5000"
+
+    return render_template(
+        "admin/production.html",
+        plan=plan,
+        bom_items=bom_items,
+        total_part_types=total_part_types,
+        total_items_required=total_items_required,
+        shift_info=shift_info,
+        product_name=product_name,
+    )
 
 
 @bp.route("/consumption")
