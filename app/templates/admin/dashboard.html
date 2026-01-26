@@ -225,104 +225,118 @@ block content %}
   <!-- Parts Inventory & Usage -->
   <div
     class="card border-0 shadow-sm mb-4"
-    style="border-radius: 12px; background: #ffffff"
+    style="
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+    "
   >
     <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
       <h5
         class="fw-bold"
-        style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px"
+        style="
+          font-size: 14px;
+          color: #1e293b;
+          letter-spacing: -0.2px;
+          margin-bottom: 20px;
+        "
       >
         Parts Inventory & Usage
       </h5>
     </div>
-    <div class="card-body p-4">
-      <div class="table-responsive">
+    <div class="card-body p-0">
+      <div class="table-responsive px-4 pb-4">
         <table
           class="table table-hover align-middle mb-0"
-          style="border-collapse: separate; border-spacing: 0"
+          style="border-spacing: 0; width: 100%"
         >
           <thead>
             <tr style="border-bottom: 1px solid #f1f5f9">
               <th
-                class="border-0 py-3 ps-4"
-                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+                class="border-0 py-3 text-start"
+                style="
+                  font-size: 11px;
+                  font-weight: 500;
+                  color: #8a7b6a;
+                  width: 30%;
+                "
               >
                 Part Name
               </th>
               <th
                 class="text-center border-0 py-3"
                 style="
-                  font-size: 12px;
+                  font-size: 11px;
                   font-weight: 500;
                   color: #8a7b6a;
                   line-height: 1.2;
                 "
               >
-                Required Qty<br /><span style="font-size: 10px; opacity: 0.8"
+                Required Qty<br /><span style="font-size: 9px; opacity: 0.7"
                   >(from Plan)</span
                 >
               </th>
               <th
                 class="text-center border-0 py-3"
-                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
               >
                 Actual Used
               </th>
               <th
                 class="text-center border-0 py-3"
-                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
               >
                 Scrap
               </th>
               <th
                 class="text-center border-0 py-3"
-                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
               >
                 Remaining Stock
               </th>
               <th
-                class="text-center border-0 py-3 pe-4"
-                style="font-size: 12px; font-weight: 500; color: #8a7b6a"
+                class="text-center border-0 py-3"
+                style="font-size: 11px; font-weight: 500; color: #8a7b6a"
               >
                 Status
               </th>
             </tr>
           </thead>
-          <tbody class="border-top-0">
+          <tbody>
             {% for item in inventory_usage %}
             <tr style="border-bottom: 1px solid #f8fafc">
-              <td class="py-3 ps-4">
-                <div
-                  class="fw-semibold text-dark"
-                  style="font-size: 14px; letter-spacing: -0.2px"
+              <td class="py-3 text-start">
+                <span style="font-size: 13px; font-weight: 500; color: #1e293b"
+                  >{{ item.name }} {{ item.sku }}</span
                 >
-                  {{ item.name }}
-                </div>
-                <div class="text-muted" style="font-size: 11px">
-                  {{ item.sku }}
-                </div>
               </td>
-              <td class="text-center py-3" style="font-size: 13px; color: #444">
+              <td
+                class="text-center py-3"
+                style="font-size: 12px; font-weight: 400; color: #334155"
+              >
                 {{ item.required_qty }}
               </td>
               <td
                 class="text-center py-3"
-                style="font-size: 13px; color: {% if item.actual_used > item.required_qty %}#dc2626{% else %}#444{% endif %};"
+                style="font-size: 12px; font-weight: 400; color: {% if item.actual_used > item.required_qty %}#d97706{% else %}#334155{% endif %};"
               >
                 {{ item.actual_used }}
               </td>
-              <td class="text-center py-3" style="font-size: 13px; color: #444">
+              <td
+                class="text-center py-3"
+                style="font-size: 12px; font-weight: 400; color: #334155"
+              >
                 {{ item.scrap }}
               </td>
               <td
                 class="text-center py-3 fw-bold"
-                style="font-size: 13px; color: {% if item.remaining_stock < 50 %}#dc2626{% else %}#1e293b{% endif %};"
+                style="font-size: 12px; color: {% if item.remaining_stock < 50 %}#dc2626{% else %}#1e293b{% endif %};"
               >
                 {{ item.remaining_stock }}
               </td>
-              <td class="text-center py-3 pe-4">
+              <td class="text-center py-3">
                 <span
-                  class="badge-pill-custom {% if item.status == 'OK' %}badge-ok{% elif item.status == 'Low Stock' %}badge-low{% else %}badge-critical{% endif %}"
+                  class="badge-pill-figma {% if item.status == 'OK' %}badge-figma-ok{% elif item.status == 'Low Stock' %}badge-figma-low{% else %}badge-figma-critical{% endif %}"
                 >
                   {{ item.status }}
                 </span>
@@ -438,34 +452,32 @@ block content %}
     border: 1px solid #dbeafe !important;
   }
 
-  /* Badge Styles from Figma - Matching exactly */
-  .badge-pill-custom {
-    padding: 6px 12px;
-    border-radius: 6px;
+  /* Badge Styles from Figma - Perfect Match */
+  .badge-pill-figma {
+    padding: 3px 10px;
+    border-radius: 100px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     display: inline-block;
-    letter-spacing: 0.2px;
   }
-  .badge-ok {
+  .badge-figma-ok {
     background-color: #f0fdf4;
     color: #16a34a;
   }
-  .badge-ok::before {
+  .badge-figma-ok::before {
     content: "✓ ";
     font-weight: bold;
   }
 
-  .badge-low {
+  .badge-figma-low {
     background-color: #fffbeb;
     color: #d97706;
   }
 
-  .badge-critical {
+  .badge-figma-critical {
     background-color: #fef2f2;
     color: #dc2626;
-    text-transform: uppercase;
-    font-size: 10px;
+    text-transform: none;
   }
 
   .bg-light {
