@@ -1,0 +1,448 @@
+{# ไฟล์นี้คือ "โครงสร้างหลักของหน้า Operator" ครับ
+ออกแบบมาให้เหมาะกับการใช้งานหน้าเครื่องจักร ทำไมถึงมีไฟล์นี้? ->
+เพื่อแยกหน้าจอของพนักงานออกจากแอดมินให้ชัดเจน เน้นความง่ายและไอคอนขนาดใหญ่
+ที่สำคัญ: มีระบบ Sidebar ที่พับเปิด-ปิดได้ เพื่อเพิ่มพื้นที่ในการดูข้อมูลครับ #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}Operator Panel{% endblock %} - Assembly Line Tracking
+    </title>
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+      :root {
+        --sidebar-width: 280px; /* Increased from 260px */
+        --header-height: 72px; /* Increased from 64px */
+        --primary-blue: #3b82f6;
+        --bg-light: #f8fafc;
+        --text-muted: #64748b;
+        --text-dark: #1e293b;
+      }
+      body {
+        background-color: var(--bg-light);
+        font-family: "Inter", system-ui, sans-serif;
+        margin: 0;
+        padding-top: var(--header-height);
+      }
+
+      /* Fixed Top Header */
+      .top-header {
+        background: white;
+        padding: 0 32px; /* Increased padding */
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: var(--header-height);
+        z-index: 1100;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02); /* Added subtle shadow */
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px; /* Added gap */
+      }
+
+      .toggle-btn {
+        background: none;
+        border: none;
+        color: var(--text-dark);
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        margin-right: 8px;
+        transition: 0.2s;
+      }
+      .toggle-btn:hover {
+        background: #f1f5f9;
+        border-radius: 6px;
+      }
+      .toggle-btn svg {
+        width: 28px; /* Larger icon */
+        height: 28px;
+      }
+
+      .system-title {
+        font-weight: 400; /* Normal weight */
+        font-size: 22px;
+        color: #1e293b;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+
+      /* Sidebar - Below Header */
+      .sidebar {
+        width: var(--sidebar-width);
+        background: white;
+        border-right: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease;
+        position: fixed;
+        top: var(--header-height);
+        bottom: 0;
+        left: 0;
+        z-index: 1000;
+        transform: translateX(0);
+        padding-top: 16px;
+      }
+      .sidebar.collapsed {
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+      }
+
+      .sidebar-menu {
+        list-style: none;
+        padding: 16px;
+        margin: 0;
+      }
+      .sidebar-menu li {
+        margin-bottom: 8px;
+      }
+      .sidebar-menu li a {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 20px;
+        color: var(--text-muted);
+        text-decoration: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 400; /* Normal weight */
+        transition: 0.2s;
+      }
+      .sidebar-menu li a:hover {
+        background-color: #f1f5f9;
+        color: var(--text-dark);
+      }
+      .sidebar-menu li a.active {
+        background-color: #ebf5ff;
+        color: var(--primary-blue);
+        font-weight: 400; /* Normal weight for active state too */
+      }
+      .sidebar-menu li a svg {
+        width: 22px; /* Larger icons */
+        height: 22px;
+        stroke-width: 2;
+      }
+
+      /* Main Content Area */
+      .main-wrapper {
+        transition: padding-left 0.3s ease;
+        padding-left: var(--sidebar-width);
+        width: 100%;
+      }
+      .main-wrapper.full-width {
+        padding-left: 0;
+      }
+
+      .content-area {
+        padding: 30px; /* More breathing room */
+        max-width: 1600px; /* Wider content */
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .user-meta {
+        text-align: right;
+      }
+      .user-name {
+        font-weight: 600;
+        font-size: 15px; /* Slightly larger */
+        color: var(--text-dark);
+        display: block;
+      }
+      .user-role {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: block;
+      }
+      .logout-icon {
+        color: var(--text-muted);
+        text-decoration: none;
+        margin-left: 8px;
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        border-radius: 8px;
+        transition: background-color 0.2s;
+      }
+      .logout-icon:hover {
+        background-color: #fee2e2;
+        color: #ef4444;
+      }
+      .logout-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      /* Page Headings */
+      .page-title {
+        font-size: 24px; /* Larger page titles */
+        /* font-weight: 700; */
+        color: var(--text-dark);
+        margin-bottom: 8px;
+      }
+      .page-subtitle {
+        font-size: 15px;
+        color: var(--text-muted);
+        margin-bottom: 32px;
+      }
+      /* Table and List Hover Effects */
+      .table tbody tr {
+        transition: background-color 0.15s ease;
+      }
+      .table tbody tr:hover td {
+        background-color: #f8fafc !important;
+      }
+      .list-group-item {
+        transition: all 0.15s ease;
+      }
+      .list-group-item:hover {
+        background-color: #f8fafc !important;
+        /* padding-left: 28px !important; */
+      }
+      /* Custom Table Header - Robust Gray Style */
+      .table > thead > tr > th,
+      .table > thead > th {
+        background-color: #dee2e6 !important;
+        color: #1e293b !important;
+        border-bottom: 2px solid #adb5bd !important;
+        font-weight: 600 !important;
+        padding: 12px 15px !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header (Always at top, full width) -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="toggle-btn" id="toggle-sidebar">
+          <svg
+            id="toggle-icon"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="system-title">Assembly Line Tracking System</div>
+      </div>
+
+      <div class="user-profile">
+        <div class="user-meta">
+          <span class="user-name">John Operator</span>
+          <span class="user-role">Line Operator</span>
+        </div>
+        <a
+          href="{{ url_for('auth.logout') }}"
+          class="logout-icon"
+          title="Logout"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Sidebar (Below header) -->
+    <aside class="sidebar" id="sidebar">
+      <ul class="sidebar-menu">
+        <li>
+          <a
+            href="{{ url_for('operator.index') }}"
+            class="{% if request.endpoint == 'operator.index' %}active{% endif %}"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('operator.production') }}"
+            class="{% if request.endpoint == 'operator.production' %}active{% endif %}"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              ></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Production Plan
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('operator.consumption') }}"
+            class="{% if request.endpoint == 'operator.consumption' %}active{% endif %}"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            Consumption
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('operator.stock') }}"
+            class="{% if request.endpoint == 'operator.stock' %}active{% endif %}"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              ></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            Stock Status
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('operator.reports') }}"
+            class="{% if request.endpoint == 'operator.reports' %}active{% endif %}"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              ></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Reports
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper" id="main-wrapper">
+      <main class="content-area">
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %} {% for category, message in messages %}
+        <div
+          class="alert alert-{{ category }} alert-dismissible fade show"
+          role="alert"
+        >
+          {{ message }}
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert"
+          ></button>
+        </div>
+        {% endfor %} {% endif %} {% endwith %} {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const toggleBtn = document.getElementById("toggle-sidebar");
+      const sidebar = document.getElementById("sidebar");
+      const mainWrapper = document.getElementById("main-wrapper");
+      const toggleIcon = document.getElementById("toggle-icon");
+
+      toggleBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        mainWrapper.classList.toggle("full-width");
+
+        if (sidebar.classList.contains("collapsed")) {
+          // Hamburger icon ≡
+          toggleIcon.innerHTML =
+            '<line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line>';
+        } else {
+          // X icon
+          toggleIcon.innerHTML =
+            '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>';
+        }
+      });
+    </script>
+  </body>
+</html>

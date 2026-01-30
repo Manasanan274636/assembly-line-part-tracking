@@ -1,0 +1,399 @@
+{# หน้าจอ "เช็คสต็อก" สำหรับพนักงาน ทำไมถึงมีหน้านี้? ->
+ใช้สำหรับดูจำนวนอะไหล่คงเหลือแบบ Real-time และดูระบบแจ้งเตือนเมื่อของใกล้หมด
+(Critical/Low Stock) ครับ #} {% extends "base_operator.html" %} {% block title
+%}Stock Status{% endblock %} {% block content %}
+<div class="mb-4">
+  <h1 class="page-title">Stock Status & Alerts</h1>
+  <p class="page-subtitle">Monitor inventory levels and stock alerts</p>
+</div>
+
+<!-- Summary Status Cards -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-danger bg-opacity-10 rounded text-danger">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            ></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <span
+          class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25"
+          style="font-size: 10px"
+          >Critical</span
+        >
+      </div>
+      <div class="text-muted small mb-1">Critical Stock</div>
+      <div class="h4 mb-0">2 Items</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-warning bg-opacity-10 rounded text-warning">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            rotate="90"
+          >
+            <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+            <polyline points="17 6 23 6 23 12"></polyline>
+          </svg>
+        </div>
+        <span
+          class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25"
+          style="font-size: 10px"
+          >Low</span
+        >
+      </div>
+      <div class="text-muted small mb-1">Low Stock</div>
+      <div class="h4 mb-0">2 Items</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-success bg-opacity-10 rounded text-success">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <span
+          class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"
+          style="font-size: 10px"
+          >Adequate</span
+        >
+      </div>
+      <div class="text-muted small mb-1">Adequate Stock</div>
+      <div class="h4 mb-0">4 Items</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="p-3 d-flex justify-content-between align-items-center gap-3">
+    <div class="input-group flex-grow-1">
+      <span class="input-group-text bg-white border-end-0 text-muted ps-3">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <input
+        type="text"
+        id="stockSearchInput"
+        class="form-control border-start-0 ps-1 py-2"
+        placeholder="Search by part number or description..."
+      />
+    </div>
+    <div class="d-flex gap-1">
+      <button
+        class="btn btn-primary rounded-3 filter-btn active"
+        data-filter="all"
+      >
+        All
+      </button>
+      <button
+        class="btn btn-light rounded-3 filter-btn text-muted"
+        data-filter="Critical"
+      >
+        Critical
+      </button>
+      <button
+        class="btn btn-light rounded-3 filter-btn text-muted"
+        data-filter="Low"
+      >
+        Low
+      </button>
+      <button
+        class="btn btn-light rounded-3 filter-btn text-muted"
+        data-filter="Adequate"
+      >
+        Adequate
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="card border-0 shadow-sm overflow-hidden">
+  <div class="p-4 border-bottom bg-white">
+    <h5 class="card-title mb-0" style="font-size: 16px">Inventory Status</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle" style="font-size: 13px">
+      <thead class="bg-light">
+        <tr>
+          <th class="ps-4 fw-medium text-muted py-3">Part Number</th>
+          <th class="fw-medium text-muted py-3">Description</th>
+          <th class="fw-medium text-muted py-3">Current Stock</th>
+          <th class="fw-medium text-muted py-3">Min Stock</th>
+          <th class="fw-medium text-muted py-3">Max Stock</th>
+          <th class="fw-medium text-muted py-3">Stock Level</th>
+          <th class="fw-medium text-muted py-3 text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="stockTableBody">
+        <tr class="border-bottom" data-status="Adequate">
+          <td class="ps-4 fw-medium">A-3421</td>
+          <td class="text-muted">Main Shaft</td>
+          <td>450 pcs</td>
+          <td>200 pcs</td>
+          <td>1000 pcs</td>
+          <td style="width: 200px">
+            <div class="progress" style="height: 6px; width: 140px">
+              <div class="progress-bar bg-success" style="width: 45%"></div>
+            </div>
+          </td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Adequate
+            </span>
+          </td>
+        </tr>
+        <tr class="border-bottom" data-status="Low">
+          <td class="ps-4 fw-medium">B-1234</td>
+          <td>Bearing Set</td>
+          <td>180 pcs</td>
+          <td>200 pcs</td>
+          <td>800 pcs</td>
+          <td>
+            <div class="progress" style="height: 6px; width: 140px">
+              <div class="progress-bar bg-warning" style="width: 22%"></div>
+            </div>
+          </td>
+          <td class="text-center">
+            <span
+              class="badge bg-warning bg-opacity-10 text-warning py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+              Low
+            </span>
+          </td>
+        </tr>
+        <tr class="border-bottom" data-status="Critical">
+          <td class="ps-4 fw-medium">C-5678</td>
+          <td class="text-muted">Gasket Kit</td>
+          <td>85 set</td>
+          <td>100 set</td>
+          <td>500 set</td>
+          <td>
+            <div class="progress" style="height: 6px; width: 140px">
+              <div class="progress-bar bg-danger" style="width: 17%"></div>
+            </div>
+          </td>
+          <td class="text-center">
+            <span
+              class="badge bg-danger bg-opacity-10 text-danger py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <path
+                  d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                ></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              Critical
+            </span>
+          </td>
+        </tr>
+        <tr class="border-bottom" data-status="Adequate">
+          <td class="ps-4 fw-medium">D-9012</td>
+          <td class="text-muted">Oil Seal</td>
+          <td>1500 pcs</td>
+          <td>300 pcs</td>
+          <td>2000 pcs</td>
+          <td>
+            <div class="progress" style="height: 6px; width: 140px">
+              <div class="progress-bar bg-success" style="width: 75%"></div>
+            </div>
+          </td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Adequate
+            </span>
+          </td>
+        </tr>
+        <tr data-status="Adequate">
+          <td class="ps-4 fw-medium">E-3456</td>
+          <td class="text-muted">Bolt Set M12</td>
+          <td>2400 pcs</td>
+          <td>500 pcs</td>
+          <td>3000 pcs</td>
+          <td>
+            <div class="progress" style="height: 6px; width: 140px">
+              <div class="progress-bar bg-success" style="width: 80%"></div>
+            </div>
+          </td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Adequate
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const filterBtns = document.querySelectorAll(".filter-btn");
+    const searchInput = document.getElementById("stockSearchInput");
+    const tableRows = document.querySelectorAll("#stockTableBody tr");
+
+    let currentFilter = "all";
+    let currentSearch = "";
+
+    // Handle Filter Buttons
+    filterBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Remove active class from all
+        filterBtns.forEach((b) => {
+          b.classList.remove("btn-primary", "active");
+          b.classList.add("btn-light", "text-muted");
+        });
+        // Add active class to clicked
+        btn.classList.remove("btn-light", "text-muted");
+        btn.classList.add("btn-primary", "active");
+
+        currentFilter = btn.getAttribute("data-filter");
+        filterTable();
+      });
+    });
+
+    // Handle Search Input
+    searchInput.addEventListener("input", (e) => {
+      currentSearch = e.target.value.toLowerCase().trim();
+      filterTable();
+    });
+
+    function filterTable() {
+      tableRows.forEach((row) => {
+        const status = row.getAttribute("data-status");
+        const partNo = row.children[0].textContent.toLowerCase();
+        const desc = row.children[1].textContent.toLowerCase();
+
+        const matchFilter = currentFilter === "all" || status === currentFilter;
+        const matchSearch =
+          partNo.includes(currentSearch) || desc.includes(currentSearch);
+
+        if (matchFilter && matchSearch) {
+          row.classList.remove("d-none");
+        } else {
+          row.classList.add("d-none");
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

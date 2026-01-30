@@ -1,0 +1,40 @@
+{% extends "base_operator.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>👋 Welcome, Operator {{ current_user.username }}</h2>
+        <p class="text-muted">Current Shift Status: <span class="badge bg-success">Active</span></p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Quick Stats for Operator -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="text-muted">Today's Production</h6>
+                <h3>342 <small class="fs-6 text-muted">Units</small></h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="text-muted">Efficiency Rate</h6>
+                <h3 class="text-success">98.5%</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="text-muted">Low Stock Alerts</h6>
+                <h3 class="text-warning">3</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

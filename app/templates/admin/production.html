@@ -1,0 +1,373 @@
+{# หน้าสำหรับ "จัดการแผนการผลิต" (Production Plan) ทำไมถึงมีหน้านี้? ->
+เพื่อให้แอดมินกำหนดเป้าหมายการผลิตในแต่ละวัน และใส่สูตรการผลิต (BOM)
+ว่างานนี้ต้องใช้อะไหล่อะไรบ้าง ข้อมูลที่แอดมินคีย์หน้านี้
+จะไปปรากฏที่หน้าจอของพนักงาน (Operator) เพื่อให้เขาเริ่มทำงานครับ #} {% extends
+"base_admin.html" %} {% block title %}Production Plan{% endblock %} {% block
+content %}
+<div class="py-4">
+  <!-- Production Plan Overview Card -->
+  <div
+    class="card border-0 shadow-sm mb-4"
+    style="border-radius: 0 0 12px 12px; overflow: hidden"
+  >
+    <div
+      class="card-header border-0 py-4 px-4"
+      style="background-color: #0f172a; color: white"
+    >
+      <h4 class="mb-1" style="font-size: 18px; font-weight: 500">
+        Production Plan Overview
+      </h4>
+    </div>
+    <div class="card-body p-4">
+      <div class="row text-center text-md-start">
+        <div class="col-md-3 mb-3 mb-md-0 border-end-md">
+          <div class="d-flex align-items-center gap-3 px-md-3">
+            <div class="p-2 bg-light rounded" style="color: #64748b">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="text-secondary small fw-medium">Production Date</div>
+              <div class="fw-bold fs-6">{{ plan.target_date }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3 mb-md-0 border-end-md">
+          <div class="d-flex align-items-center gap-3 px-md-3">
+            <div class="p-2 bg-light rounded" style="color: #64748b">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="text-secondary small fw-medium">Shift</div>
+              <div class="fw-bold fs-6">{{ shift_info }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3 mb-md-0 border-end-md">
+          <div class="d-flex align-items-center gap-3 px-md-3">
+            <div class="p-2 bg-light rounded" style="color: #64748b">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                ></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="text-secondary small fw-medium">Product</div>
+              <div class="fw-bold fs-6">{{ product_name }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="d-flex align-items-center gap-3 px-md-3">
+            <div class="p-2 bg-light rounded" style="color: #64748b">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="text-secondary small fw-medium mb-1">
+                Planned Quantity
+              </div>
+              <div
+                class="fw-bold text-primary"
+                style="font-size: 24px; letter-spacing: -0.02em"
+              >
+                {{ plan.planned_qty }} units
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOM Section -->
+  <div
+    class="card border-0 shadow-sm mb-4"
+    style="border-radius: 12px; overflow: hidden"
+  >
+    <div class="card-header bg-white border-0 py-4 px-4">
+      <h5 class="mb-1" style="font-size: 16px; font-weight: 600">
+        Bill of Materials (BOM)
+      </h5>
+      <p class="mb-0 text-muted small">
+        Required parts calculated based on production quantity
+      </p>
+    </div>
+    <div class="card-body p-4 bg-white">
+      <div class="table-responsive">
+        <table class="table mb-0 border-0">
+          <thead>
+            <tr
+              class="premium-row header-row"
+              style="border-bottom: 1px solid #d4d4d4"
+            >
+              <th
+                class="ps-2 py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Part Code
+              </th>
+              <th
+                class="py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Part Name
+              </th>
+              <th
+                class="text-center py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Qty per Unit
+              </th>
+              <th
+                class="text-center py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Unit
+              </th>
+              <th
+                class="text-end pe-4 py-3 border-0"
+                style="
+                  background-color: #f4f9ff;
+                  color: #1e293b;
+                  font-size: 12px;
+                  font-weight: 600;
+                "
+              >
+                Calculated Required
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in bom_items %}
+            <tr class="premium-row">
+              <td
+                class="ps-2 py-3 align-middle"
+                style="font-size: 13px; color: #475569; border: 0"
+              >
+                {{ item.part_code }}
+              </td>
+              <td
+                class="py-3 align-middle"
+                style="
+                  font-size: 13px;
+                  font-weight: 500;
+                  color: #1e293b;
+                  border: 0;
+                "
+              >
+                {{ item.part_name }}
+              </td>
+              <td
+                class="text-center py-3 align-middle"
+                style="font-size: 13px; color: #1e293b; border: 0"
+              >
+                {{ item.qty_per_unit }}
+              </td>
+              <td
+                class="text-center py-3 align-middle"
+                style="font-size: 13px; color: #64748b; border: 0"
+              >
+                {{ item.unit }}
+              </td>
+              <td
+                class="text-end pe-4 py-3 align-middle fw-bold"
+                style="
+                  background-color: #f4f9ff;
+                  color: #2563eb;
+                  font-size: 14px;
+                  border: 0;
+                "
+              >
+                {{ item.calculated_required }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white border-0 p-4">
+      <div
+        class="p-3 rounded"
+        style="background-color: #f8fafc; border: 1px solid #f1f5f9"
+      >
+        <h6 style="font-size: 13px; font-weight: 600" class="mb-2">
+          Calculation Formula:
+        </h6>
+        <code
+          class="d-block mb-1"
+          style="
+            color: #475569;
+            font-size: 12px;
+            background: #fcf9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: fit-content;
+          "
+          >calculated required = qty per unit x planned quantity</code
+        >
+        <p class="mb-0 text-muted" style="font-size: 11px">
+          Example: Motor Assembly M-401 = 1 x 150 = 150 pcs
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Section -->
+  <div
+    class="card border-0 shadow-sm mt-4"
+    style="border-radius: 12px; overflow: hidden"
+  >
+    <div class="card-body p-2 p-lg-4">
+      <h5
+        class="mb-4"
+        style="font-size: 15px; font-weight: 600; color: #1e293b"
+      >
+        Production Summary
+      </h5>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div
+            class="p-3"
+            style="
+              border-radius: 12px;
+              background-color: #eff6ff;
+              border: 1px solid #dbeafe;
+              height: 100%;
+            "
+          >
+            <div
+              class="small fw-medium mb-1"
+              style="color: #64748b; font-size: 13px"
+            >
+              Total Part Types
+            </div>
+            <div
+              class="fw-bold"
+              style="color: #2563eb; font-size: 28px; letter-spacing: -0.02em"
+            >
+              {{ total_part_types }}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="p-3"
+            style="
+              border-radius: 12px;
+              background-color: #f0fdf4;
+              border: 1px solid #dcfce7;
+              height: 100%;
+            "
+          >
+            <div
+              class="small fw-medium mb-1"
+              style="color: #64748b; font-size: 13px"
+            >
+              Total Items Required
+            </div>
+            <div
+              class="fw-bold"
+              style="color: #16a34a; font-size: 28px; letter-spacing: -0.02em"
+            >
+              {{ "{:,}".format(total_items_required) }}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="p-3"
+            style="
+              border-radius: 12px;
+              background-color: #faf5ff;
+              border: 1px solid #f3e8ff;
+              height: 100%;
+            "
+          >
+            <div
+              class="small fw-medium mb-1"
+              style="color: #64748b; font-size: 13px"
+            >
+              Production Target
+            </div>
+            <div
+              class="fw-bold"
+              style="color: #9333ea; font-size: 28px; letter-spacing: -0.02em"
+            >
+              {{ plan.planned_qty }} units
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @media (min-width: 768px) {
+    .border-end-md {
+      border-right: 1px solid #f1f5f9 !important;
+    }
+  }
+  .table thead th {
+    border: none;
+  }
+  .premium-row {
+    /* position: relative; */
+    border: none !important;
+  }
+  .premium-row::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    background-color: #f1f5f9;
+  }
+  .header-row::after {
+    background-color: #e2e8f0;
+    height: 1px;
+  }
+</style>
+{% endblock %}

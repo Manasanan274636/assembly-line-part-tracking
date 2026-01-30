@@ -1,0 +1,1114 @@
+{# หน้าจอ "รายงานและสถิติ" สำหรับพนักงาน ทำไมถึงมีหน้านี้? ->
+ใช้สำหรับดูสรุปผลการทำงานของตัวเอง เช่น ยอดผลิตสะสม, ประสิทธิภาพการผลิต
+(Efficiency), และยอดของเสียประจำสัปดาห์ครับ #} {% extends "base_operator.html"
+%} {% block title %}Reports{% endblock %} {% block content %}
+<div class="mb-4">
+  <h1 class="page-title">Reports & Analytics</h1>
+  <p class="page-subtitle">Generate and export production reports</p>
+</div>
+
+<!-- Report Type Selection -->
+<div class="mb-4">
+  <h6 class="text-muted small mb-3">Report Type</h6>
+  <div class="row g-3">
+    <div class="col">
+      <div
+        class="card report-type-card active p-3 shadow-sm h-100"
+        data-type="production"
+      >
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 icon-box rounded">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              ></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div class="fw-medium small title-text">Production Summary</div>
+            <div class="text-muted" style="font-size: 10px">
+              Weekly performance
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div
+        class="card report-type-card p-3 shadow-sm h-100"
+        data-type="consumption"
+      >
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 icon-box rounded">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div class="fw-medium small title-text">Consumption Report</div>
+            <div class="text-muted" style="font-size: 10px">
+              Parts usage details
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card report-type-card p-3 shadow-sm h-100" data-type="scrap">
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 icon-box rounded">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              ></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div>
+            <div class="fw-medium small title-text">Scrap Analysis</div>
+            <div class="text-muted" style="font-size: 10px">
+              Scrap rate by part
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div
+        class="card report-type-card p-3 shadow-sm h-100"
+        data-type="inventory"
+      >
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 icon-box rounded">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              ></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <div>
+            <div class="fw-medium small title-text">Inventory Status</div>
+            <div class="text-muted" style="font-size: 10px">
+              Current stock levels
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div
+        class="card report-type-card p-3 shadow-sm h-100"
+        data-type="efficiency"
+      >
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 icon-box rounded">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div class="fw-medium small title-text">Efficiency Report</div>
+            <div class="text-muted" style="font-size: 10px">Line metrics</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .report-type-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #f1f5f9;
+  }
+  .report-type-card:hover {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+  }
+  .report-type-card.active {
+    background-color: #ebf5ff;
+    border-color: #3b82f6;
+    color: #3b82f6;
+  }
+  .report-type-card .icon-box {
+    background-color: #f1f5f9;
+    color: #64748b;
+    transition: 0.2s;
+  }
+  .report-type-card.active .icon-box {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+</style>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div
+    class="p-3 d-flex justify-content-between align-items-center border-bottom bg-white"
+    style="font-size: 13px"
+  >
+    <div class="d-flex align-items-center gap-3 flex-grow-1">
+      <div class="text-muted fw-medium">Date Range</div>
+      <select
+        class="form-select w-auto ps-5 border-0 bg-light fw-medium"
+        style="
+          background-image: url(&quot;data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2218%22 height=%2218%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%224%22 width=%2218%22 height=%2218%22 rx=%222%22 ry=%222%22></rect><line x1=%2216%22 y1=%222%22 x2=%2216%22 y2=%226%22></line><line x1=%228%22 y1=%222%22 x2=%228%22 y2=%226%22></line><line x1=%223%22 y1=%2210%22 x2=%2221%22 y2=%2210%22></line></svg>&quot;);
+          background-repeat: no-repeat;
+          background-position: left 12px center;
+        "
+      >
+        <option>This Month</option>
+        <option>Last Month</option>
+        <option>Last 7 Days</option>
+      </select>
+      <button
+        class="btn btn-light d-flex align-items-center gap-2 text-muted fw-medium py-1 px-3 border"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polygon
+            points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
+          ></polygon>
+        </svg>
+        More Filters
+      </button>
+    </div>
+    <div class="d-flex gap-2">
+      <button
+        class="btn btn-success d-flex align-items-center gap-2 px-3 py-1 fw-medium"
+        style="font-size: 12px"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export to Excel
+      </button>
+      <button
+        class="btn btn-danger d-flex align-items-center gap-2 px-3 py-1 fw-medium"
+        style="font-size: 12px"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export to PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Production Trend Chart -->
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h6 id="trend-title" class="card-title text-muted mb-4 small">
+        Production Trend
+      </h6>
+      <div class="flex-grow-1" style="min-height: 250px">
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div id="trend-legend" class="d-flex justify-content-center mt-3 gap-3">
+        <div class="d-flex align-items-center gap-1 small">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              background: #3b82f6;
+              border-radius: 3px;
+              opacity: 0.8;
+            "
+          ></span>
+          Planned
+        </div>
+        <div class="d-flex align-items-center gap-1 small">
+          <span style="width: 12px; height: 2px; background: #10b981"></span>
+          Actual
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Scrap Distribution Pie Chart -->
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h6 id="scrap-title" class="card-title text-muted mb-4 small">
+        Scrap Distribution
+      </h6>
+      <div class="flex-grow-1" style="min-height: 250px; position: relative">
+        <canvas id="scrapChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm p-4 h-100 d-flex flex-column">
+      <h6 id="efficiency-title" class="card-title text-muted mb-4 small">
+        Weekly Efficiency
+      </h6>
+      <div class="flex-grow-1" style="min-height: 200px">
+        <canvas id="efficiencyChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 h-100 d-flex flex-column">
+      <h6 class="card-title text-muted mb-4 small">Summary Statistics</h6>
+      <div id="stats-container">
+        <div
+          class="d-flex justify-content-between align-items-center p-3 mb-2 rounded"
+          style="background-color: #f1f5f9"
+        >
+          <span class="text-muted small">Total Production</span>
+          <span class="fw-medium" style="font-size: 14px">2,717 units</span>
+        </div>
+        <div
+          class="d-flex justify-content-between align-items-center p-3 mb-2 rounded"
+          style="background-color: #f1f5f9"
+        >
+          <span class="text-muted small">Average Efficiency</span>
+          <span class="text-success fw-medium" style="font-size: 14px"
+            >98.8%</span
+          >
+        </div>
+        <div
+          class="d-flex justify-content-between align-items-center p-3 mb-2 rounded"
+          style="background-color: #f1f5f9"
+        >
+          <span class="text-muted small">Total Scrap</span>
+          <span class="text-danger fw-medium" style="font-size: 14px"
+            >50 units</span
+          >
+        </div>
+        <div
+          class="d-flex justify-content-between align-items-center p-3 mb-2 rounded"
+          style="background-color: #f1f5f9"
+        >
+          <span class="text-muted small">Scrap Rate</span>
+          <span class="text-danger fw-medium" style="font-size: 14px"
+            >1.8%</span
+          >
+        </div>
+        <div
+          class="d-flex justify-content-between align-items-center p-3 rounded"
+          style="background-color: #f1f5f9"
+        >
+          <span class="text-muted small">On-Time Delivery</span>
+          <span class="text-success fw-medium" style="font-size: 14px"
+            >96.5%</span
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detailed Production Data Table -->
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
+  <div
+    class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center"
+  >
+    <h5 id="table-title" class="card-title mb-0" style="font-size: 16px">
+      Detailed Production Data
+    </h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table mb-0" style="font-size: 13px">
+      <thead id="table-header">
+        <tr>
+          <th class="ps-4">Week</th>
+          <th>Planned</th>
+          <th>Actual</th>
+          <th>Variance</th>
+          <th>Efficiency</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <tr class="align-middle border-bottom">
+          <td class="ps-4 fw-medium text-dark">Week 1</td>
+          <td>650</td>
+          <td>642</td>
+          <td class="text-danger">-8</td>
+          <td>98.8%</td>
+          <td class="text-center">
+            <span
+              class="badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Good
+            </span>
+          </td>
+        </tr>
+        <tr class="align-middle border-bottom">
+          <td class="ps-4 fw-medium text-dark">Week 2</td>
+          <td>680</td>
+          <td>675</td>
+          <td class="text-danger">-5</td>
+          <td>99.3%</td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Excellent
+            </span>
+          </td>
+        </tr>
+        <tr class="align-middle border-bottom">
+          <td class="ps-4 fw-medium text-dark">Week 3</td>
+          <td>700</td>
+          <td>685</td>
+          <td class="text-danger">-15</td>
+          <td>97.9%</td>
+          <td class="text-center">
+            <span
+              class="badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Good
+            </span>
+          </td>
+        </tr>
+        <tr class="align-middle">
+          <td class="ps-4 fw-medium text-dark">Week 4</td>
+          <td>720</td>
+          <td>715</td>
+          <td class="text-danger">-5</td>
+          <td>99.3%</td>
+          <td class="text-center">
+            <span
+              class="badge bg-success bg-opacity-10 text-success d-inline-flex align-items-center justify-content-start ps-2"
+              style="font-size: 11px; width: 100px; border-radius: 10px"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="me-1"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Excellent
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Chart Instances
+  let trendChart, scrapChart, efficiencyChart;
+
+  // Mockup Data for different reports
+  const reportData = {
+    production: {
+      trendTitle: "Production Trend",
+      scrapTitle: "Scrap Distribution",
+      effTitle: "Weekly Efficiency",
+      tableTitle: "Detailed Production Data",
+      headers: [
+        "Week",
+        "Planned",
+        "Actual",
+        "Variance",
+        "Efficiency",
+        "Status",
+      ],
+      trend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data1: [650, 700, 720, 750],
+        data2: [638, 715, 710, 745],
+      },
+      scrap: {
+        labels: [
+          "Part A: 24%",
+          "Part B: 16%",
+          "Part C: 30%",
+          "Part D: 10%",
+          "Part E: 20%",
+        ],
+        data: [24, 16, 30, 10, 20],
+      },
+      eff: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [98, 99.2, 98.5, 99.5],
+      },
+      stats: [
+        { label: "Total Production", val: "2,717 units" },
+        { label: "Average Efficiency", val: "98.8%", color: "text-success" },
+        { label: "Total Scrap", val: "50 units", color: "text-danger" },
+        { label: "Scrap Rate", val: "1.8%", color: "text-danger" },
+        { label: "On-Time Delivery", val: "96.5%", color: "text-success" },
+      ],
+      tableRows: [
+        {
+          c1: "Week 1",
+          c2: "650",
+          c3: "642",
+          c4: "-8",
+          c5: "98.8%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 2",
+          c2: "680",
+          c3: "675",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+        {
+          c1: "Week 3",
+          c2: "700",
+          c3: "685",
+          c4: "-15",
+          c5: "97.9%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 4",
+          c2: "720",
+          c3: "715",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+      ],
+    },
+    consumption: {
+      trendTitle: "Consumption Trend",
+      scrapTitle: "Consumption by Category",
+      effTitle: "Material Usage Efficiency",
+      tableTitle: "Detailed Consumption Data",
+      headers: [
+        "Week",
+        "Planned",
+        "Actual",
+        "Variance",
+        "Efficiency",
+        "Status",
+      ],
+      trend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data1: [650, 700, 720, 750],
+        data2: [638, 715, 710, 745],
+      },
+      scrap: {
+        labels: [
+          "Part A: 24%",
+          "Part B: 16%",
+          "Part C: 30%",
+          "Part D: 10%",
+          "Part E: 20%",
+        ],
+        data: [24, 16, 30, 10, 20],
+      },
+      eff: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [98, 99.2, 98.5, 99.5],
+      },
+      stats: [
+        { label: "Total Production", val: "2,717 units" },
+        { label: "Average Efficiency", val: "98.8%", color: "text-success" },
+        { label: "Total Scrap", val: "50 units", color: "text-danger" },
+        { label: "Scrap Rate", val: "1.8%", color: "text-danger" },
+        { label: "On-Time Delivery", val: "96.5%", color: "text-success" },
+      ],
+      tableRows: [
+        {
+          c1: "Week 1",
+          c2: "650",
+          c3: "642",
+          c4: "-8",
+          c5: "98.8%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 2",
+          c2: "680",
+          c3: "675",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+        {
+          c1: "Week 3",
+          c2: "700",
+          c3: "685",
+          c4: "-15",
+          c5: "97.9%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 4",
+          c2: "720",
+          c3: "715",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+      ],
+    },
+    scrap: {
+      trendTitle: "Scrap Trend",
+      scrapTitle: "Defect Types",
+      effTitle: "Quality Rate",
+      tableTitle: "Scrap & Defect Log",
+      headers: [
+        "Week",
+        "Planned",
+        "Actual",
+        "Variance",
+        "Efficiency",
+        "Status",
+      ],
+      trend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data1: [650, 700, 720, 750],
+        data2: [638, 715, 710, 745],
+      },
+      scrap: {
+        labels: [
+          "Part A: 24%",
+          "Part B: 16%",
+          "Part C: 30%",
+          "Part D: 10%",
+          "Part E: 20%",
+        ],
+        data: [24, 16, 30, 10, 20],
+      },
+      eff: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [98, 99.2, 98.5, 99.5],
+      },
+      stats: [
+        { label: "Total Production", val: "2,717 units" },
+        { label: "Average Efficiency", val: "98.8%", color: "text-success" },
+        { label: "Total Scrap", val: "50 units", color: "text-danger" },
+        { label: "Scrap Rate", val: "1.8%", color: "text-danger" },
+        { label: "On-Time Delivery", val: "96.5%", color: "text-success" },
+      ],
+      tableRows: [
+        {
+          c1: "Week 1",
+          c2: "650",
+          c3: "642",
+          c4: "-8",
+          c5: "98.8%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 2",
+          c2: "680",
+          c3: "675",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+        {
+          c1: "Week 3",
+          c2: "700",
+          c3: "685",
+          c4: "-15",
+          c5: "97.9%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 4",
+          c2: "720",
+          c3: "715",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+      ],
+    },
+    inventory: {
+      trendTitle: "Inventory Trend",
+      scrapTitle: "Category Breakdown",
+      effTitle: "Stock Turnover",
+      tableTitle: "Current Inventory Status",
+      headers: [
+        "Week",
+        "Planned",
+        "Actual",
+        "Variance",
+        "Efficiency",
+        "Status",
+      ],
+      trend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data1: [650, 700, 720, 750],
+        data2: [638, 715, 710, 745],
+      },
+      scrap: {
+        labels: [
+          "Part A: 24%",
+          "Part B: 16%",
+          "Part C: 30%",
+          "Part D: 10%",
+          "Part E: 20%",
+        ],
+        data: [24, 16, 30, 10, 20],
+      },
+      eff: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [98, 99.2, 98.5, 99.5],
+      },
+      stats: [
+        { label: "Total Production", val: "2,717 units" },
+        { label: "Average Efficiency", val: "98.8%", color: "text-success" },
+        { label: "Total Scrap", val: "50 units", color: "text-danger" },
+        { label: "Scrap Rate", val: "1.8%", color: "text-danger" },
+        { label: "On-Time Delivery", val: "96.5%", color: "text-success" },
+      ],
+      tableRows: [
+        {
+          c1: "Week 1",
+          c2: "650",
+          c3: "642",
+          c4: "-8",
+          c5: "98.8%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 2",
+          c2: "680",
+          c3: "675",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+        {
+          c1: "Week 3",
+          c2: "700",
+          c3: "685",
+          c4: "-15",
+          c5: "97.9%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 4",
+          c2: "720",
+          c3: "715",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+      ],
+    },
+    efficiency: {
+      trendTitle: "OEE Trend",
+      scrapTitle: "Loss Reasons",
+      effTitle: "Machine Availability",
+      tableTitle: "Line Efficiency Log",
+      headers: [
+        "Week",
+        "Planned",
+        "Actual",
+        "Variance",
+        "Efficiency",
+        "Status",
+      ],
+      trend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data1: [650, 700, 720, 750],
+        data2: [638, 715, 710, 745],
+      },
+      scrap: {
+        labels: [
+          "Part A: 24%",
+          "Part B: 16%",
+          "Part C: 30%",
+          "Part D: 10%",
+          "Part E: 20%",
+        ],
+        data: [24, 16, 30, 10, 20],
+      },
+      eff: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [98, 99.2, 98.5, 99.5],
+      },
+      stats: [
+        { label: "Total Production", val: "2,717 units" },
+        { label: "Average Efficiency", val: "98.8%", color: "text-success" },
+        { label: "Total Scrap", val: "50 units", color: "text-danger" },
+        { label: "Scrap Rate", val: "1.8%", color: "text-danger" },
+        { label: "On-Time Delivery", val: "96.5%", color: "text-success" },
+      ],
+      tableRows: [
+        {
+          c1: "Week 1",
+          c2: "650",
+          c3: "642",
+          c4: "-8",
+          c5: "98.8%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 2",
+          c2: "680",
+          c3: "675",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+        {
+          c1: "Week 3",
+          c2: "700",
+          c3: "685",
+          c4: "-15",
+          c5: "97.9%",
+          status: "Good",
+          badge: "bg-primary",
+        },
+        {
+          c1: "Week 4",
+          c2: "720",
+          c3: "715",
+          c4: "-5",
+          c5: "99.3%",
+          status: "Excellent",
+          badge: "bg-success",
+        },
+      ],
+    },
+  };
+
+  function updateUI(type) {
+    const d = reportData[type] || reportData.production;
+
+    // Update Titles
+    document.getElementById("trend-title").innerText = d.trendTitle;
+    document.getElementById("scrap-title").innerText = d.scrapTitle;
+    document.getElementById("efficiency-title").innerText = d.effTitle;
+    document.getElementById("table-title").innerText = d.tableTitle;
+
+    // Update Stats
+    statsContainer.innerHTML = d.stats
+      .map(
+        (s, idx) => `
+        <div class="d-flex justify-content-between align-items-center p-3 ${idx === d.stats.length - 1 ? "" : "mb-2"} rounded" style="background-color: #f1f5f9">
+            <span class="text-muted small">${s.label}</span>
+            <span class="${s.color || ""} fw-medium" style="font-size: 14px">${s.val}</span>
+        </div>
+    `,
+      )
+      .join("");
+
+    // Update Headers
+    const tableHeader = document.getElementById("table-header");
+    tableHeader.innerHTML = `
+        <tr>
+            ${d.headers.map((h, i) => `<th class="${i === 0 ? "ps-4" : ""} ${h === "Status" ? "text-center" : ""}">${h}</th>`).join("")}
+        </tr>
+    `;
+
+    // Update Table
+    const tableBody = document.getElementById("table-body");
+    tableBody.innerHTML = d.tableRows
+      .map((row, idx) => {
+        let icon = "";
+        if (row.status === "Adequate") {
+          icon = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>`;
+        } else if (row.status === "Low") {
+          icon = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+                <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>`;
+        } else if (row.status === "Critical") {
+          icon = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>`;
+        }
+
+        return `
+        <tr class="align-middle ${idx === d.tableRows.length - 1 ? "" : "border-bottom"}">
+            <td class="ps-4 fw-medium text-dark">${row.c1}</td>
+            <td>${row.c2}</td>
+            <td>${row.c3}</td>
+            <td class="${row.c4.startsWith("-") ? "text-danger" : row.c4.startsWith("+") ? "text-success" : ""}">${row.c4}</td>
+            <td>${row.c5}</td>
+            <td class="text-center">
+                <span class="badge ${row.badge} bg-opacity-10 text-${row.badge.replace("bg-", "")} d-inline-flex align-items-center justify-content-start ps-2" style="font-size: 11px; width: 100px; border-radius: 10px">
+                    ${icon}${row.status}
+                </span>
+            </td>
+        </tr>
+    `;
+      })
+      .join("");
+
+    // Update Charts
+    trendChart.data.labels = d.trend.labels;
+    trendChart.data.datasets[0].data = d.trend.data1;
+    trendChart.data.datasets[1].data = d.trend.data2;
+    trendChart.update();
+
+    scrapChart.data.labels = d.scrap.labels;
+    scrapChart.data.datasets[0].data = d.scrap.data;
+    scrapChart.update();
+
+    efficiencyChart.data.labels = d.eff.labels;
+    efficiencyChart.data.datasets[0].data = d.eff.data;
+    efficiencyChart.update();
+  }
+
+  // Initial Charts setup
+  const trendCtx = document.getElementById("trendChart").getContext("2d");
+  trendChart = new Chart(trendCtx, {
+    type: "line",
+    data: {
+      labels: reportData.production.trend.labels,
+      datasets: [
+        {
+          label: "Planned",
+          data: reportData.production.trend.data1,
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.05)",
+          fill: true,
+          tension: 0,
+          pointRadius: 3,
+        },
+        {
+          label: "Actual",
+          data: reportData.production.trend.data2,
+          borderColor: "#10b981",
+          pointBackgroundColor: "#fff",
+          pointBorderColor: "#10b981",
+          pointBorderWidth: 2,
+          tension: 0,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { borderDash: [5, 5] },
+        },
+        x: { border: { display: false }, grid: { display: false } },
+      },
+    },
+  });
+
+  const scrapCtx = document.getElementById("scrapChart").getContext("2d");
+  scrapChart = new Chart(scrapCtx, {
+    type: "pie",
+    data: {
+      labels: reportData.production.scrap.labels,
+      datasets: [
+        {
+          data: reportData.production.scrap.data,
+          backgroundColor: [
+            "#3b82f6",
+            "#10b981",
+            "#f59e0b",
+            "#ef4444",
+            "#8b5cf6",
+          ],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: "right",
+          labels: { boxWidth: 10, usePointStyle: true, font: { size: 10 } },
+        },
+      },
+      maintainAspectRatio: false,
+    },
+  });
+
+  const effCtx = document.getElementById("efficiencyChart").getContext("2d");
+  efficiencyChart = new Chart(effCtx, {
+    type: "bar",
+    data: {
+      labels: reportData.production.eff.labels,
+      datasets: [
+        {
+          data: reportData.production.eff.data,
+          backgroundColor: "#8b5cf6",
+          borderRadius: 4,
+          barThickness: 50,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          min: 75,
+          max: 100,
+          border: { display: false },
+          grid: { borderDash: [5, 5] },
+        },
+        x: { border: { display: false }, grid: { display: false } },
+      },
+    },
+  });
+
+  // Handle Card Clicks
+  document.querySelectorAll(".report-type-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      document
+        .querySelectorAll(".report-type-card")
+        .forEach((c) => c.classList.remove("active"));
+      card.classList.add("active");
+      const type = card.getAttribute("data-type");
+      updateUI(type);
+    });
+  });
+</script>
+{% endblock %}

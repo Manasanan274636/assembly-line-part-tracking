@@ -1,1 +1,9 @@
 ///123
+test
+
+figma
+admin ui
+https://www.figma.com/make/HHWE1sT10JjJNDKhMG8SkU/Factory-Dashboard-Design?t=hR0BRkxGy6RKrAlv-20&fullscreen=1
+
+operator ui
+https://www.figma.com/make/mPXWhnj9ZLLPgEbi7CnhH8/Automotive-Tracking-System-UI?p=f&t=yvkm68pcxggQlFkA-0&fullscreen=1&preview-route=%2Fdashboard
