@@ -1,5 +1,7 @@
-{% extends "base_operator.html" %} {% block title %}Stock Status{% endblock %}
-{% block content %}
+{# หน้าจอ "เช็คสต็อก" สำหรับพนักงาน ทำไมถึงมีหน้านี้? ->
+ใช้สำหรับดูจำนวนอะไหล่คงเหลือแบบ Real-time และดูระบบแจ้งเตือนเมื่อของใกล้หมด
+(Critical/Low Stock) ครับ #} {% extends "base_operator.html" %} {% block title
+%}Stock Status{% endblock %} {% block content %}
 <div class="mb-4">
   <h1 class="page-title">Stock Status & Alerts</h1>
   <p class="page-subtitle">Monitor inventory levels and stock alerts</p>
@@ -155,7 +157,7 @@
     <h5 class="card-title mb-0" style="font-size: 16px">Inventory Status</h5>
   </div>
   <div class="table-responsive">
-    <table class="table mb-0 align-middle " style="font-size: 13px">
+    <table class="table mb-0 align-middle" style="font-size: 13px">
       <thead class="bg-light">
         <tr>
           <th class="ps-4 fw-medium text-muted py-3">Part Number</th>

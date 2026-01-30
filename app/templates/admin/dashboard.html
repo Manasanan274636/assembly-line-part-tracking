@@ -1,5 +1,8 @@
-{% extends "base_admin.html" %} {% block title %}Dashboard{% endblock %} {%
-block content %}
+{# หน้า Dashboard ของ Admin ครับ เป็นหน้าแรกที่แอดมินจะเห็นหลัง Login
+ทำไมถึงมีหน้านี้? -> เพื่อสรุป "ภาพรวมของโรงงาน" ทั้งหมดออกมาเป็นตัวเลขและกราฟ
+(เช่น ยอดผลิตวันนี้, สต็อกที่เหลือ) ไฟล์นี้จะเอาข้อมูลจาก Python (admin.py)
+มาเติมลงในตารางและกราฟเพื่อให้ดูง่ายครับ #} {% extends "base_admin.html" %} {%
+block title %}Dashboard{% endblock %} {% block content %}
 <div class="py-4">
   <!-- KPI Dashboard Cards -->
   <div class="row g-4 mb-4">

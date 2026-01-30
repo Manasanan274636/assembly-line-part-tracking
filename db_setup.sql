@@ -1,3 +1,7 @@
+-- ไฟล์นี้คือ "พิมพ์เขียว SQL" (SQL Script)
+-- ทำไมถึงมีไฟล์นี้? -> สำหรับใช้รันโดยตรงใน MySQL Workbench หรือ Command Line
+-- หน้าที่สำคัญ: สร้างตาราง User และใส่ข้อมูล Admin/Operator เบื้องต้นแบบรวดเร็วครับ
+
 -- 1. Create Users Table
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

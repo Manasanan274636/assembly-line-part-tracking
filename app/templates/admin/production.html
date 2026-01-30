@@ -1,5 +1,9 @@
-{% extends "base_admin.html" %} {% block title %}Production Plan{% endblock %}
-{% block content %}
+{# หน้าสำหรับ "จัดการแผนการผลิต" (Production Plan) ทำไมถึงมีหน้านี้? ->
+เพื่อให้แอดมินกำหนดเป้าหมายการผลิตในแต่ละวัน และใส่สูตรการผลิต (BOM)
+ว่างานนี้ต้องใช้อะไหล่อะไรบ้าง ข้อมูลที่แอดมินคีย์หน้านี้
+จะไปปรากฏที่หน้าจอของพนักงาน (Operator) เพื่อให้เขาเริ่มทำงานครับ #} {% extends
+"base_admin.html" %} {% block title %}Production Plan{% endblock %} {% block
+content %}
 <div class="py-4">
   <!-- Production Plan Overview Card -->
   <div

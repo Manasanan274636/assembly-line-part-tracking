@@ -1,5 +1,8 @@
-{% extends "base_admin.html" %} {% block title %}Data Entry{% endblock %} {%
-block content %}
+{# หน้าสำหรับ "นำเข้าข้อมูล" (Data Entry) ครับ ทำไมถึงมีหน้านี้? ->
+เพื่อให้แอดมินสามารถบันทึกข้อมูลพื้นฐาน (Master Data) เช่น เพิ่มชิ้นส่วนใหม่
+หรือเพิ่มสถานีงาน ที่สำคัญ: หน้านี้มีปุ่มสำหรับ "Import Excel"
+เพื่อโหลดข้อมูลจำนวนมากเข้าระบบทีเดียวครับ #} {% extends "base_admin.html" %} {%
+block title %}Data Entry{% endblock %} {% block content %}
 <div class="py-4">
   <div class="row g-4">
     <!-- Manual Data Entry Column -->

@@ -1,33 +1,40 @@
+# ไฟล์นี้คือ "สมุดจดตั้งค่า" (Configuration)
+# ทำไมถึงมีไฟล์นี้? -> เพื่อรวมศูนย์การตั้งค่าทุกอย่างไว้ที่เดียว เช่น รหัสผ่านฐานข้อมูล หรือชื่อโฮสต์
+# มีระบบอัจฉริยะ:
+# - ถ้ามีไฟล์ .env มันจะดึงค่าจาก MySQL/TiDB มาใช้ (สำหรับใช้งานจริง)
+# - ถ้าไม่มีการตั้งค่า มันจะสลับไปใช้ SQLite (แบบไฟล์เดี่ยว) ให้โดยอัตโนมัติ เพื่อให้รันโปรแกรมทดสอบได้ทันทีครับ
+
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-    
+    SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-secret-key"
+
     # Database Configuration for TiDB (MySQL Compatible)
-    DB_USER = os.environ.get('DB_USER')
-    DB_PASSWORD = os.environ.get('DB_PASSWORD')
-    DB_HOST = os.environ.get('DB_HOST')
-    DB_PORT = os.environ.get('DB_PORT')
-    DB_NAME = os.environ.get('DB_NAME')
-    
+    DB_USER = os.environ.get("DB_USER")
+    DB_PASSWORD = os.environ.get("DB_PASSWORD")
+    DB_HOST = os.environ.get("DB_HOST")
+    DB_PORT = os.environ.get("DB_PORT")
+    DB_NAME = os.environ.get("DB_NAME")
+
     # Construct URI if env vars are present, otherwise fallback to local sqlite for dev safety
     if DB_HOST and DB_USER:
-        SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        SQLALCHEMY_DATABASE_URI = (
+            f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        )
         # SSL options might be needed for TiDB Cloud
-        if os.environ.get('DB_SSL_CA'):
-             SQLALCHEMY_ENGINE_OPTIONS = {
-                'connect_args': {
-                    'ssl': {
-                        'ca': os.environ.get('DB_SSL_CA')
-                    }
-                }
+        if os.environ.get("DB_SSL_CA"):
+            SQLALCHEMY_ENGINE_OPTIONS = {
+                "connect_args": {"ssl": {"ca": os.environ.get("DB_SSL_CA")}}
             }
     else:
         BASE_DIR = os.path.abspath(os.path.dirname(__file__))
         PROJECT_ROOT = os.path.dirname(BASE_DIR)
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(PROJECT_ROOT, 'assembly_line.db')
+        SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(
+            PROJECT_ROOT, "assembly_line.db"
+        )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False

@@ -1,3 +1,11 @@
+# ไฟล์นี้คือ "สมองส่วนกลางของ Admin" ครับ จัดการทุกอย่างที่แอดมินต้องเห็นและทำ
+# ทำไมถึงมีไฟล์นี้? -> เพื่อรวมศูนย์การจัดการข้อมูลระดับสูง เช่น การดูภาพรวม (Dashboard), การคีย์ข้อมูลสต็อกแบบ Manual และกำรออกรายงาน
+# มีการเรียกใช้อะไรบ้าง?
+# - Models: ดึงข้อมูลจากเกือบทุก Model (Part, Consumption, Plan, BOM) มาคำนวณเป็น KPI
+# - Pandas & Openpyxl: ใช้สำหรับอ่านและสร้างไฟล์ Excel (ทั้งตอน Import ข้อมูลจากโรงงาน และ Export รายงานออกไป)
+# - Decorators (@role_required): เพื่อรักษาความปลอดภัย ให้เฉพาะคนที่มีสิทธิ์ Admin เท่านั้นที่เข้าหน้านี้ได้
+# ที่เขียนแบบนี้เพราะเราต้องการให้ Admin มีอำนาจสูงสุดในการควบคุมและตรวจสอบข้อมูลทั้งหมดจากจุดเดียวครับ
+
 from flask import (
     Blueprint,
     render_template,
@@ -9,7 +17,6 @@ from flask import (
 )
 import pandas as pd
 import io
-import os
 from datetime import datetime
 from flask_login import login_required
 from app.utils.decorators import role_required
@@ -99,9 +106,11 @@ def index():
                 "level": "WARNING",
                 "title": "Production Alert",
                 "message": msg,
-                "time": figma_times[alert_index]
-                if alert_index < len(figma_times)
-                else "Recent",
+                "time": (
+                    figma_times[alert_index]
+                    if alert_index < len(figma_times)
+                    else "Recent"
+                ),
             }
         )
 
@@ -112,9 +121,11 @@ def index():
                 "level": "INFO",
                 "title": "Infox Production Alert",
                 "message": "Control Panel CP-88: Actual usage exceeded plan by 2 units.",
-                "time": figma_times[len(alerts)]
-                if len(alerts) < len(figma_times)
-                else "4 hours ago",
+                "time": (
+                    figma_times[len(alerts)]
+                    if len(alerts) < len(figma_times)
+                    else "4 hours ago"
+                ),
             }
         )
 
@@ -177,15 +188,15 @@ def index():
     )
 
     chart_data = {
-        "labels": [r[0] for r in top_consumed_query]
-        if top_consumed_query
-        else ["No Data"],
-        "planned": [0] * len(top_consumed_query)
-        if top_consumed_query
-        else [0],  # Default
-        "actual": [int(r[1]) for r in top_consumed_query]
-        if top_consumed_query
-        else [0],
+        "labels": (
+            [r[0] for r in top_consumed_query] if top_consumed_query else ["No Data"]
+        ),
+        "planned": (
+            [0] * len(top_consumed_query) if top_consumed_query else [0]
+        ),  # Default
+        "actual": (
+            [int(r[1]) for r in top_consumed_query] if top_consumed_query else [0]
+        ),
     }
 
     # Try to find planned amounts for these top consumed parts
@@ -370,8 +381,6 @@ def download_template():
 def production():
     from app.models.production_plan import ProductionPlan
     from app.models.bom import BOM
-    from app.models.part import Part
-    from sqlalchemy import func
 
     # Find the active 'In Progress' plan
     plan = ProductionPlan.query.filter_by(status="In Progress").first()
@@ -435,8 +444,167 @@ def stock():
     return render_template("admin/stock.html")
 
 
+def _get_report_data(start_date_str, end_date_str, station_id, part_id):
+    from app.models.consumption import Consumption
+    from app.models.part import Part
+    from app.models.station import Station
+    from app.models.production_plan import ProductionPlan
+
+    # Base query
+    query = (
+        db.session.query(
+            Consumption.timestamp,
+            Station.name.label("station_name"),
+            Part.sku.label("part_code"),
+            Part.name.label("part_name"),
+            Consumption.quantity_used,
+            Consumption.scrap_qty,
+            Part.current_stock.label("remaining_stock"),
+            ProductionPlan.planned_qty,
+        )
+        .join(Station, Consumption.station_id == Station.id)
+        .join(Part, Consumption.part_id == Part.id)
+        .join(ProductionPlan, Consumption.plan_id == ProductionPlan.id)
+    )
+
+    # Apply filters
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+            query = query.filter(Consumption.timestamp >= start_date)
+        except ValueError:
+            pass
+    if end_date_str:
+        try:
+            # Add late time to include the whole end date
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59
+            )
+            query = query.filter(Consumption.timestamp <= end_date)
+        except ValueError:
+            pass
+    if station_id and station_id != "all":
+        query = query.filter(Consumption.station_id == station_id)
+    if part_id and part_id != "all":
+        query = query.filter(Consumption.part_id == part_id)
+
+    records = query.order_by(Consumption.timestamp.desc()).all()
+    return records
+
+
 @bp.route("/reports")
 @login_required
 @role_required("admin")
 def reports():
-    return render_template("admin/reports.html")
+    from app.models.part import Part
+    from app.models.station import Station
+
+    # Get filter parameters
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
+    station_id = request.args.get("station_id")
+    part_id = request.args.get("part_id")
+
+    records = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+
+    # Process records for template
+    report_data = []
+    total_consumption = 0
+    total_scrap = 0
+    total_efficiency_sum = 0
+
+    for r in records:
+        total_qty = r.quantity_used + r.scrap_qty
+        eff = (r.quantity_used / total_qty * 100) if total_qty > 0 else 0
+
+        report_data.append(
+            {
+                "date": r.timestamp.strftime("%Y-%m-%d"),
+                "station": r.station_name,
+                "part_code": r.part_code,
+                "part_name": r.part_name,
+                "consumption": r.quantity_used,
+                "scrap": r.scrap_qty,
+                "remaining_stock": r.remaining_stock,
+                "efficiency": round(eff, 1),
+            }
+        )
+
+        total_consumption += r.quantity_used
+        total_scrap += r.scrap_qty
+        total_efficiency_sum += eff
+
+    avg_efficiency = (total_efficiency_sum / len(records)) if records else 0
+
+    # Get dropdown options
+    all_stations = Station.query.all()
+    all_parts = Part.query.all()
+
+    return render_template(
+        "admin/reports.html",
+        report_data=report_data,
+        total_records=len(records),
+        total_consumption=total_consumption,
+        total_scrap=total_scrap,
+        avg_efficiency=round(avg_efficiency, 1),
+        start_date=start_date_str,
+        end_date=end_date_str,
+        selected_station=station_id,
+        selected_part=part_id,
+        stations=all_stations,
+        parts=all_parts,
+    )
+
+
+@bp.route("/reports/export")
+@login_required
+@role_required("admin")
+def export_reports():
+    import pandas as pd
+    import io
+
+    # Get filter parameters
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
+    station_id = request.args.get("station_id")
+    part_id = request.args.get("part_id")
+
+    records = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+
+    # Convert to DataFrame
+    data = []
+    for r in records:
+        total_qty = r.quantity_used + r.scrap_qty
+        eff = (r.quantity_used / total_qty * 100) if total_qty > 0 else 0
+        data.append(
+            {
+                "Date": r.timestamp.strftime("%Y-%m-%d"),
+                "Station": r.station_name,
+                "Part Code": r.part_code,
+                "Part Name": r.part_name,
+                "Consumption": r.quantity_used,
+                "Scrap": r.scrap_qty,
+                "Remaining Stock": r.remaining_stock,
+                "Efficiency %": f"{eff:.1f}%",
+            }
+        )
+
+    df = pd.DataFrame(data)
+
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Reports")
+
+    output.seek(0)
+
+    filename = (
+        f"Factory_Report_{start_date_str or 'all'}_to_{end_date_str or 'all'}.xlsx"
+    )
+
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
