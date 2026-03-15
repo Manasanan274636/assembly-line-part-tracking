@@ -65,7 +65,7 @@ block title %}Data Entry{% endblock %} {% block content %}
                   <option value="" selected disabled>Choose a part...</option>
                   {% for part in parts %}
                   <option value="{{ part.id }}">
-                    {{ part.name }} {{ part.sku }}
+                    {{ part.name }} {{ part.id }}
                   </option>
                   {% endfor %}
                 </select>

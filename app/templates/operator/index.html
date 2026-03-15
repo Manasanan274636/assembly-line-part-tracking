@@ -1,40 +1,245 @@
-{% extends "base_operator.html" %}
+{% extends "base_operator.html" %} 
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %} 
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <h2>👋 Welcome, Operator {{ current_user.username }}</h2>
-        <p class="text-muted">Current Shift Status: <span class="badge bg-success">Active</span></p>
-    </div>
+<div class="mb-4">
+  <h1 class="page-title">Dashboard Overview</h1>
+  <p class="page-subtitle">Real-time production monitoring and key metrics</p>
 </div>
 
-<div class="row mt-4">
-    <!-- Quick Stats for Operator -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="text-muted">Today's Production</h6>
-                <h3>342 <small class="fs-6 text-muted">Units</small></h3>
-            </div>
+<!-- KPI Cards -->
+<div class="row g-4 mb-4">
+  <!-- Today's Production -->
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-primary bg-opacity-10 rounded text-primary">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
         </div>
+        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fw-medium" style="font-size: 10px">+5.2%</span>
+      </div>
+      <div class="text-muted small mb-1">Today's Production</div>
+      <div class="h4 mb-0 fw-medium">{{ todays_production }} Units</div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="text-muted">Efficiency Rate</h6>
-                <h3 class="text-success">98.5%</h3>
-            </div>
+  </div>
+  
+  <!-- Efficiency Rate -->
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-success bg-opacity-10 rounded text-success">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
         </div>
+        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fw-medium" style="font-size: 10px">98.5%</span>
+      </div>
+      <div class="text-muted small mb-1">Efficiency Rate</div>
+      <div class="h4 mb-0 fw-medium">{{ efficiency_rate }}%</div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="text-muted">Low Stock Alerts</h6>
-                <h3 class="text-warning">3</h3>
-            </div>
+  </div>
+
+  <!-- Low Stock Alerts -->
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 bg-warning bg-opacity-10 rounded text-warning">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
         </div>
+        <span class="text-warning small fw-medium" style="font-size: 10px">{{ low_stock_alerts }} Items</span>
+      </div>
+      <div class="text-muted small mb-1">Low Stock Alerts</div>
+      <div class="h4 mb-0 fw-medium">{{ low_stock_alerts }}</div>
     </div>
+  </div>
+
+  <!-- Active Orders -->
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="p-2 rounded bg-opacity-10" style="background-color: #f3e8ff; color: #a855f7;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <span class="text-success small fw-medium" style="font-size: 10px">On Track</span>
+      </div>
+      <div class="text-muted small mb-1">Active Orders</div>
+      <div class="h4 mb-0 fw-medium">{{ active_orders }}</div>
+    </div>
+  </div>
 </div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h6 class="card-title text-dark fw-medium mb-4 small">Weekly Production (Mon-Fri)</h6>
+      <div class="flex-grow-1" style="min-height: 250px; position:relative;">
+        <canvas id="weeklyProductionChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h6 class="card-title text-dark fw-medium mb-4 small">Parts Consumption Rate</h6>
+      <div class="flex-grow-1" style="min-height: 250px; position:relative;">
+        <canvas id="consumptionChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
+  <div class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+    <h5 class="card-title mb-0 fw-medium text-dark" style="font-size: 15px">Recent Activity</h5>
+  </div>
+  <div class="p-0">
+    <ul class="list-group list-group-flush">
+      {% for activity in recent_activities %}
+      <li class="list-group-item p-3 py-3 border-bottom d-flex align-items-start gap-3 border-0" style="border-bottom: 1px solid #f1f5f9 !important;">
+        {% set color = "#94a3b8" %}
+        {% if 'started' in activity.activity_type.lower() or 'entry' in activity.activity_type.lower() or 'production' in activity.activity_type.lower() %}{% set color = "#10b981" %}
+        {% elif 'alert' in activity.activity_type.lower() or 'scrap' in activity.activity_type.lower() or 'low' in activity.activity_type.lower() %}{% set color = "#f59e0b" %}
+        {% elif 'shift' in activity.activity_type.lower() %}{% set color = "#3b82f6" %}{% endif %}
+        <div class="mt-1" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ color }};"></div>
+        <div>
+          <div class="text-dark small fw-medium">{{ activity.message }}</div>
+          <div class="text-muted fw-medium mt-1" style="font-size: 10px">{{ activity.created_at.strftime('%H:%M %p') }}</div>
+        </div>
+      </li>
+      {% else %}
+      <li class="list-group-item p-4 text-center text-muted small">No recent activity</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Shared chart options
+    Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    Chart.defaults.color = '#94a3b8';
+
+    // Weekly Production Chart
+    const wpCtx = document.getElementById('weeklyProductionChart').getContext('2d');
+    new Chart(wpCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ weekly_labels | tojson }},
+        datasets: [
+          {
+            label: 'Planned',
+            data: {{ planned_data | tojson }},
+            backgroundColor: '#3b82f6',
+            barPercentage: 0.6,
+            categoryPercentage: 0.4,
+            borderRadius: 2
+          },
+          {
+            label: 'Actual',
+            data: {{ actual_data | tojson }},
+            backgroundColor: '#10b981',
+            barPercentage: 0.6,
+            categoryPercentage: 0.4,
+            borderRadius: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { 
+            position: 'bottom', 
+            labels: { boxWidth: 10, usePointStyle: true, padding: 20, font: {size: 11} } 
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#f8fafc', drawBorder: false },
+            ticks: { 
+                font: { size: 10 }, color: '#94a3b8' 
+            },
+            border: { display: false }
+          },
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 11 }, color: '#64748b' },
+            border: { display: false }
+          }
+        }
+      }
+    });
+
+    // Parts Consumption Chart
+    const pcCtx = document.getElementById('consumptionChart').getContext('2d');
+    
+    // Create gradient
+    const gradient = pcCtx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.2)');
+    gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+    new Chart(pcCtx, {
+      type: 'line',
+      data: {
+        labels: {{ part_labels | tojson }},
+        datasets: [{
+          label: 'Total Consumption',
+          data: {{ part_values | tojson }},
+          borderColor: '#8b5cf6',
+          backgroundColor: gradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#8b5cf6',
+          pointBorderWidth: 2,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: '#8b5cf6',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleFont: { size: 13, weight: '600' },
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#f8fafc', drawBorder: false },
+            ticks: { font: { size: 10 }, color: '#94a3b8' },
+            border: { display: false }
+          },
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 11 }, color: '#64748b' },
+            border: { display: false }
+          }
+        }
+      }
+    });
+  });
+</script>
 {% endblock %}

@@ -158,70 +158,68 @@ block title %}Dashboard{% endblock %} {% block content %}
     </div>
   </div>
 
-  <!-- Critical Alerts Section -->
-  <div
-    class="card border-0 shadow-sm mb-4"
-    style="
-      border-radius: 12px;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
-    "
-  >
-    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
-      <h5
-        class="fw-bold"
-        style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px"
-      >
-        Critical Alerts & Notifications
-      </h5>
-    </div>
-    <div class="card-body p-4">
-      {% for alert in alerts %}
+  <!-- Critical Alerts & Activities -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
       <div
-        class="alert {% if alert.level == 'CRITICAL' %}alert-danger-custom{% elif alert.level == 'WARNING' %}alert-warning-custom{% else %}alert-info-custom{% endif %} border-0 d-flex justify-content-between align-items-center mb-3 p-3"
-        style="border-radius: 12px; border: 1px solid transparent"
+        class="card border-0 shadow-sm h-100"
+        style="border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;"
       >
-        <div class="d-flex align-items-center gap-3">
-          <div
-            class="alert-icon-wrapper rounded-circle d-flex align-items-center justify-content-center"
-            style="
-              width: 32px;
-              height: 32px;
-              background: rgba(255, 255, 255, 0.6);
-            "
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-              ></path>
-              <line x1="12" y1="9" x2="12" y2="13"></line>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-          </div>
-          <div>
-            <div
-              class="fw-bold"
-              style="font-size: 13px; color: inherit; margin-bottom: 2px"
-            >
-              {% if alert.level == 'CRITICAL' %}CRITICAL: {% elif alert.level ==
-              'WARNING' %}Warning: {% else %}Info: {% endif %} {{ alert.title }}
-            </div>
-            <div style="font-size: 12px; opacity: 0.8; font-weight: 400">
-              {{ alert.message }}
-            </div>
-          </div>
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+          <h5 class="fw-bold" style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px">
+            Critical Alerts
+          </h5>
         </div>
-        <div class="small fw-medium" style="font-size: 11px; opacity: 0.6">
-          {{ alert.time }}
+        <div class="card-body p-4 pt-2">
+          {% if alerts %}
+            {% for alert in alerts %}
+            <div class="alert {% if alert.level == 'CRITICAL' %}alert-danger-custom{% elif alert.level == 'WARNING' %}alert-warning-custom{% else %}alert-info-custom{% endif %} border-0 d-flex justify-content-between align-items-center mb-2 p-3" style="border-radius: 12px;">
+              <div class="d-flex align-items-center gap-3">
+                <div class="fw-bold" style="font-size: 13px;">{{ alert.message }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted small">No critical alerts at this time.</div>
+          {% endif %}
         </div>
       </div>
-      {% endfor %}
+    </div>
+    
+    <div class="col-md-6">
+      <div
+        class="card border-0 shadow-sm h-100"
+        style="border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;"
+      >
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+          <h5 class="fw-bold" style="font-size: 15px; color: #1e293b; letter-spacing: -0.2px">
+            Recent Activity Logs
+          </h5>
+        </div>
+        <div class="card-body p-4 pt-2">
+          {% if activity_feed %}
+            {% for act in activity_feed %}
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-light">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-light rounded-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                        <div class="fw-medium" style="font-size: 13px; color: #1e293b;">{{ act.type }}</div>
+                        <div class="text-muted" style="font-size: 12px;">{{ act.message }}</div>
+                    </div>
+                </div>
+                <div class="small text-muted" style="font-size: 11px;">{{ act.time }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted small">No recent activity detected.</div>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 

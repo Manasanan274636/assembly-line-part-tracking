@@ -31,190 +31,104 @@ bp = Blueprint("admin", __name__, url_prefix="/admin")
 def index():
     from app.models.part import Part
     from app.models.consumption import Consumption
-    from app.models.production_plan import ProductionPlan
     from app.models.bom import BOM
+    from app.models.scrap import Scrap
+    from app.models.activity_log import ActivityLog
     from sqlalchemy import func
 
     # 1. KPI Stats
-    # Total units in inventory
+    # Total units in inventory (using stock_qty)
     total_parts_units = db.session.query(func.sum(Part.current_stock)).scalar() or 0
-    # Number of SKUs low on stock
+    # Number of SKUs low on stock (using min_level)
     low_stock_count = Part.query.filter(
         Part.current_stock <= Part.min_stock_level
     ).count()
 
-    # Total scrap units
-    scrap_count = db.session.query(func.sum(Consumption.scrap_qty)).scalar() or 0
+    # Total scrap units (from scrap table)
+    scrap_count = db.session.query(func.sum(Scrap.scrap_qty)).scalar() or 0
 
-    # 2. Critical Alerts
+    # 2. Critical Alerts & Activity Feed
     alerts = []
-    # Identify critical items (very low stock)
+    # Identify critical items
     critical_items = (
         Part.query.filter(Part.current_stock < (Part.min_stock_level / 2))
         .limit(3)
         .all()
     )
-    # Identify warning items (low stock)
-    warning_items = (
-        Part.query.filter(
-            Part.current_stock >= (Part.min_stock_level / 2),
-            Part.current_stock <= Part.min_stock_level,
-        )
-        .limit(3)
-        .all()
-    )
+    
+    for item in critical_items:
+        alerts.append({
+            "level": "CRITICAL",
+            "title": "Stock Alert",
+            "message": f"{item.name} ({item.id}): Critical stock ({item.current_stock} {item.unit})",
+            "time": "Recent"
+        })
 
-    figma_times = [
-        "10 minutes ago",
-        "1 hour ago",
-        "2 hours ago",
-        "3 hours ago",
-        "4 hours ago",
-    ]
+    # Get recent activity logs
+    recent_activities = ActivityLog.query.order_by(ActivityLog.id.desc()).limit(5).all()
+    activity_feed = []
+    for log in recent_activities:
+        activity_feed.append({
+            "type": log.activity_type,
+            "message": log.message,
+            "time": log.created_at.strftime("%H:%M")
+        })
 
-    for i, item in enumerate(critical_items):
-        if item.sku == "CP-88":
-            msg = f"Control Panel CP-88: Critical stock level ({item.current_stock} units). Risk of line stop within 4 hours."
-        else:
-            msg = f"{item.name} ({item.sku}): Critical stock level ({item.current_stock} units)."
-
-        alerts.append(
-            {
-                "level": "CRITICAL",
-                "title": "Production Alert",
-                "message": msg,
-                "time": figma_times[i] if i < len(figma_times) else "Recent",
-            }
-        )
-
-    for i, item in enumerate(warning_items):
-        if len(alerts) >= 5:
-            break
-        alert_index = len(alerts)
-
-        if item.sku == "B-225":
-            msg = f"Bearing Unit B-225: Low stock ({item.current_stock} units). Reorder recommended."
-        elif item.sku == "PCB-300":
-            msg = f"PCB Board PCB-300: Low stock ({item.current_stock} units). Monitor closely."
-        elif item.sku == "SM-77":
-            msg = f"Sensor Module SM-77: Low stock ({item.current_stock} units). Reorder scheduled."
-        else:
-            msg = f"{item.name}: Low stock ({item.current_stock} units)."
-
-        alerts.append(
-            {
-                "level": "WARNING",
-                "title": "Production Alert",
-                "message": msg,
-                "time": (
-                    figma_times[alert_index]
-                    if alert_index < len(figma_times)
-                    else "Recent"
-                ),
-            }
-        )
-
-    # Add an info alert if needed to match Figma
-    if len(alerts) < 5:
-        alerts.append(
-            {
-                "level": "INFO",
-                "title": "Infox Production Alert",
-                "message": "Control Panel CP-88: Actual usage exceeded plan by 2 units.",
-                "time": (
-                    figma_times[len(alerts)]
-                    if len(alerts) < len(figma_times)
-                    else "4 hours ago"
-                ),
-            }
-        )
-
-    # 3. Parts Inventory & Usage Table
+    # 3. Inventory & Usage Overview
     inventory_usage = []
-    # Get parts that are either low stock or have recent consumption
     parts = Part.query.order_by(Part.current_stock.asc()).limit(10).all()
 
     for p in parts:
-        # Sum of consumption for this part
-        consumption_query = (
-            db.session.query(
-                func.sum(Consumption.quantity_used), func.sum(Consumption.scrap_qty)
-            )
+        # Sum of consumption
+        actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(part_id=p.id).scalar() or 0
+        
+        # Calculate scrap for this part
+        scrap_qty = (
+            db.session.query(func.sum(Scrap.scrap_qty))
+            .join(Consumption)
             .filter(Consumption.part_id == p.id)
-            .first()
+            .scalar() or 0
         )
 
-        actual_used = consumption_query[0] or 0
-        scrap = consumption_query[1] or 0
-
-        # Sum of required qty from BOM for all 'In Progress' plans
+        # Planned from BOM
         required_qty = (
             db.session.query(func.sum(BOM.quantity_required))
-            .join(ProductionPlan)
-            .filter(BOM.part_id == p.id, ProductionPlan.status == "In Progress")
-            .scalar()
-            or 0
+            .join(Part)
+            .filter(Part.id == p.id)
+            .scalar() or 0
         )
 
-        # Determine status
         status = "OK"
         if p.current_stock == 0:
             status = "CRITICAL"
         elif p.current_stock <= p.min_stock_level:
             status = "Low Stock"
 
-        inventory_usage.append(
-            {
-                "name": p.name,
-                "sku": p.sku,
-                "required_qty": required_qty,
-                "actual_used": actual_used,
-                "scrap": scrap,
-                "remaining_stock": p.current_stock,
-                "status": status,
-            }
-        )
+        inventory_usage.append({
+            "name": p.name,
+            "sku": p.id,
+            "required_qty": required_qty,
+            "actual_used": actual_used,
+            "scrap": scrap_qty,
+            "remaining_stock": p.current_stock,
+            "status": status,
+        })
 
-    # 4. Chart Data (Top 6 consumed parts)
-    top_consumed_query = (
-        db.session.query(
-            Part.name, func.sum(Consumption.quantity_used).label("total_used")
-        )
+    # 4. Chart Data
+    top_consumed = (
+        db.session.query(Part.name, func.sum(Consumption.actual_qty).label("total"))
         .join(Consumption)
         .group_by(Part.id)
-        .order_by(func.sum(Consumption.quantity_used).desc())
+        .order_by(db.desc("total"))
         .limit(6)
         .all()
     )
 
     chart_data = {
-        "labels": (
-            [r[0] for r in top_consumed_query] if top_consumed_query else ["No Data"]
-        ),
-        "planned": (
-            [0] * len(top_consumed_query) if top_consumed_query else [0]
-        ),  # Default
-        "actual": (
-            [int(r[1]) for r in top_consumed_query] if top_consumed_query else [0]
-        ),
+        "labels": [r[0] for r in top_consumed] if top_consumed else ["No Data"],
+        "actual": [int(r[1]) for r in top_consumed] if top_consumed else [0],
+        "planned": [0] * len(top_consumed) if top_consumed else [0]
     }
-
-    # Try to find planned amounts for these top consumed parts
-    if top_consumed_query:
-        planned_amounts = []
-        for r in top_consumed_query:
-            part_name = r[0]
-            # Get total required in active plans
-            p_qty = (
-                db.session.query(func.sum(BOM.quantity_required))
-                .join(Part)
-                .join(ProductionPlan)
-                .filter(Part.name == part_name, ProductionPlan.status == "In Progress")
-                .scalar()
-                or 0
-            )
-            planned_amounts.append(int(p_qty))
-        chart_data["planned"] = planned_amounts
 
     return render_template(
         "admin/dashboard.html",
@@ -223,6 +137,7 @@ def index():
         scrap_count=scrap_count,
         active_alerts=len(alerts),
         alerts=alerts,
+        activity_feed=activity_feed,
         inventory_usage=inventory_usage,
         chart_data=chart_data,
     )
@@ -246,43 +161,55 @@ def data_entry():
 def submit_data():
     from app.models.consumption import Consumption
     from app.models.production_plan import ProductionPlan
+    from app.models.part import Part
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
 
     station_id = request.form.get("station_id")
     part_id = request.form.get("part_id")
     quantity_used = int(request.form.get("quantity_used", 0))
     scrap_qty = int(request.form.get("scrap_qty", 0))
 
-    # Logic: Find an active production plan for this station
-    plan = ProductionPlan.query.filter_by(
-        station_id=station_id, status="In Progress"
-    ).first()
+    # Logic: Find an active production plan
+    plan = ProductionPlan.query.filter_by(status="In Progress").first()
     if not plan:
-        # If no active plan, find the most recent one or flash error
-        plan = (
-            ProductionPlan.query.filter_by(station_id=station_id)
-            .order_by(ProductionPlan.id.desc())
-            .first()
-        )
-        if not plan:
-            flash("No production plan found for this station.", "danger")
-            return redirect(url_for("admin.data_entry"))
+        flash("No active production plan found.", "danger")
+        return redirect(url_for("admin.data_entry"))
 
     new_consumption = Consumption(
-        station_id=station_id,
+        order_id=plan.order_id,
         part_id=part_id,
-        plan_id=plan.id,
-        quantity_used=quantity_used,
-        scrap_qty=scrap_qty,
+        station_id=station_id,
+        actual_qty=quantity_used,
+        recorded_by=current_user.id
     )
 
     # Update part stock
-    from app.models.part import Part
-
     part = Part.query.get(part_id)
     if part:
-        part.current_stock -= quantity_used + scrap_qty
-
+        part.current_stock -= (quantity_used + scrap_qty)
+        
     db.session.add(new_consumption)
+    db.session.flush() # Get consumption ID for scrap
+
+    if scrap_qty > 0:
+        from app.models.scrap import Scrap
+        new_scrap = Scrap(
+            consumption_id=new_consumption.id,
+            scrap_qty=scrap_qty,
+            reason="Manual Entry"
+        )
+        db.session.add(new_scrap)
+
+    # Log activity
+    log = ActivityLog(
+        activity_type="Data Entry",
+        reference_id=plan.order_id,
+        message=f"Admin recorded {quantity_used} units for {part.id}",
+        created_by=current_user.id
+    )
+    db.session.add(log)
+    
     db.session.commit()
 
     flash("Data recorded successfully!", "success")
@@ -304,48 +231,64 @@ def upload_excel():
 
     try:
         df = pd.read_excel(file)
-        # Expected columns: StationName, PartSKU, QuantityUsed, ScrapQty
-        # We need to map Name/SKU to IDs
         from app.models.station import Station
         from app.models.part import Part
         from app.models.consumption import Consumption
         from app.models.production_plan import ProductionPlan
+        from app.models.scrap import Scrap
+        from app.models.activity_log import ActivityLog
+        from flask_login import current_user
 
         success_count = 0
         for _, row in df.iterrows():
             station = Station.query.filter_by(
                 name=str(row["StationName"]).strip()
             ).first()
-            part = Part.query.filter_by(sku=str(row["PartSKU"]).strip()).first()
+            part = Part.query.filter_by(id=str(row["PartSKU"]).strip()).first()
 
             if station and part:
-                plan = ProductionPlan.query.filter_by(
-                    station_id=station.id, status="In Progress"
-                ).first()
+                # Find active plan
+                plan = ProductionPlan.query.filter_by(status="In Progress").first()
                 if not plan:
-                    plan = (
-                        ProductionPlan.query.filter_by(station_id=station.id)
-                        .order_by(ProductionPlan.id.desc())
-                        .first()
-                    )
+                    plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
 
                 if plan:
                     qty = int(row["QuantityUsed"])
-                    scrap = int(row.get("ScrapQty", 0))
+                    scrap_qty = int(row.get("ScrapQty", 0))
 
                     cons = Consumption(
                         station_id=station.id,
                         part_id=part.id,
-                        plan_id=plan.id,
-                        quantity_used=qty,
-                        scrap_qty=scrap,
+                        order_id=plan.order_id,
+                        actual_qty=qty,
+                        recorded_by=current_user.id
                     )
-                    part.current_stock -= qty + scrap
                     db.session.add(cons)
+                    db.session.flush()
+
+                    if scrap_qty > 0:
+                        new_scrap = Scrap(
+                            consumption_id=cons.id,
+                            scrap_qty=scrap_qty,
+                            reason="Excel Upload"
+                        )
+                        db.session.add(new_scrap)
+                    
+                    part.current_stock -= (qty + scrap_qty)
                     success_count += 1
 
-        db.session.commit()
-        flash(f"Successfully processed {success_count} records from Excel!", "success")
+        if success_count > 0:
+            log = ActivityLog(
+                activity_type="Excel Import",
+                message=f"Imported {success_count} records via Excel",
+                created_by=current_user.id
+            )
+            db.session.add(log)
+            db.session.commit()
+            flash(f"Successfully processed {success_count} records from Excel!", "success")
+        else:
+            flash("No matching records found in Excel.", "warning")
+
     except Exception as e:
         db.session.rollback()
         flash(f"Error processing Excel: {str(e)}", "danger")
@@ -381,43 +324,46 @@ def download_template():
 def production():
     from app.models.production_plan import ProductionPlan
     from app.models.bom import BOM
+    from app.models.consumption import Consumption
+    from sqlalchemy import func
 
     # Find the active 'In Progress' plan
     plan = ProductionPlan.query.filter_by(status="In Progress").first()
     if not plan:
-        # Fallback to the latest one
-        plan = ProductionPlan.query.order_by(ProductionPlan.id.desc()).first()
+        plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
 
     bom_items = []
     total_part_types = 0
     total_items_required = 0
 
     if plan:
-        # Get BOM for this plan
-        boms = BOM.query.filter_by(plan_id=plan.id).all()
+        # Get BOM for this plan's product model
+        boms = BOM.query.filter_by(model=plan.product_name).all()
         total_part_types = len(boms)
 
         for b in boms:
-            part = b.part_info
-            qty_per_unit = (
-                b.quantity_required / plan.planned_qty if plan.planned_qty > 0 else 1
-            )
-            calculated_required = b.quantity_required
+            part = b.part
+            qty_per_unit = b.quantity_required
+            calculated_required = qty_per_unit * plan.planned_qty
             total_items_required += calculated_required
 
-            bom_items.append(
-                {
-                    "part_code": part.sku,
-                    "part_name": part.name,
-                    "qty_per_unit": round(qty_per_unit, 2),
-                    "unit": part.unit or "pcs",
-                    "calculated_required": calculated_required,
-                }
-            )
+            # Get actual consumption for this part in this plan
+            actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(
+                order_id=plan.order_id, part_id=b.part_id
+            ).scalar() or 0
 
-    # Mock data for Figma fields not in DB
+            bom_items.append({
+                "part_code": part.id,
+                "part_name": part.name,
+                "qty_per_unit": round(qty_per_unit, 2),
+                "unit": part.unit or "pcs",
+                "calculated_required": calculated_required,
+                "actual_used": actual_used,
+                "percentage": round((actual_used / calculated_required * 100), 1) if calculated_required > 0 else 0
+            })
+
     shift_info = "Day Shift (06:00 - 18:00)"
-    product_name = plan.project_title if plan else "Industrial Motor Unit XM-5000"
+    product_name = plan.product_name if plan else "N/A"
 
     return render_template(
         "admin/production.html",
@@ -441,7 +387,25 @@ def consumption():
 @login_required
 @role_required("admin")
 def stock():
-    return render_template("admin/stock.html")
+    from app.models.part import Part
+    from app.models.stock import Stock
+    from app.models.claim import Claim
+
+    # 1. Main Inventory Table
+    inventory = Part.query.order_by(Part.current_stock.asc()).all()
+
+    # 2. Recent Stock History (IN/OUT)
+    history = Stock.query.order_by(Stock.id.desc()).limit(20).all()
+
+    # 3. Pending & Recent Claims
+    claims = Claim.query.order_by(Claim.id.desc()).limit(10).all()
+
+    return render_template(
+        "admin/stock.html",
+        inventory=inventory,
+        history=history,
+        claims=claims
+    )
 
 
 def _get_report_data(start_date_str, end_date_str, station_id, part_id):
@@ -449,38 +413,41 @@ def _get_report_data(start_date_str, end_date_str, station_id, part_id):
     from app.models.part import Part
     from app.models.station import Station
     from app.models.production_plan import ProductionPlan
+    from app.models.scrap import Scrap
+    from sqlalchemy import func
 
     # Base query
     query = (
         db.session.query(
-            Consumption.timestamp,
+            Consumption.recorded_at.label("timestamp"),
             Station.name.label("station_name"),
-            Part.sku.label("part_code"),
+            Part.id.label("part_code"),
             Part.name.label("part_name"),
-            Consumption.quantity_used,
-            Consumption.scrap_qty,
+            Consumption.actual_qty.label("quantity_used"),
+            func.sum(Scrap.scrap_qty).label("scrap_qty"),
             Part.current_stock.label("remaining_stock"),
             ProductionPlan.planned_qty,
         )
         .join(Station, Consumption.station_id == Station.id)
         .join(Part, Consumption.part_id == Part.id)
-        .join(ProductionPlan, Consumption.plan_id == ProductionPlan.id)
+        .join(ProductionPlan, Consumption.order_id == ProductionPlan.order_id)
+        .outerjoin(Scrap, Scrap.consumption_id == Consumption.id)
+        .group_by(Consumption.id, Station.id, Part.id, ProductionPlan.order_id)
     )
 
     # Apply filters
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-            query = query.filter(Consumption.timestamp >= start_date)
+            query = query.filter(Consumption.recorded_at >= start_date)
         except ValueError:
             pass
     if end_date_str:
         try:
-            # Add late time to include the whole end date
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").replace(
                 hour=23, minute=59, second=59
             )
-            query = query.filter(Consumption.timestamp <= end_date)
+            query = query.filter(Consumption.recorded_at <= end_date)
         except ValueError:
             pass
     if station_id and station_id != "all":
@@ -488,7 +455,7 @@ def _get_report_data(start_date_str, end_date_str, station_id, part_id):
     if part_id and part_id != "all":
         query = query.filter(Consumption.part_id == part_id)
 
-    records = query.order_by(Consumption.timestamp.desc()).all()
+    records = query.order_by(Consumption.recorded_at.desc()).all()
     return records
 
 
@@ -514,8 +481,10 @@ def reports():
     total_efficiency_sum = 0
 
     for r in records:
-        total_qty = r.quantity_used + r.scrap_qty
-        eff = (r.quantity_used / total_qty * 100) if total_qty > 0 else 0
+        used = int(r.quantity_used or 0)
+        scrap = int(r.scrap_qty or 0)
+        total_qty = used + scrap
+        eff = round(float(used / total_qty * 100), 1) if total_qty > 0 else 0.0
 
         report_data.append(
             {
@@ -523,15 +492,15 @@ def reports():
                 "station": r.station_name,
                 "part_code": r.part_code,
                 "part_name": r.part_name,
-                "consumption": r.quantity_used,
-                "scrap": r.scrap_qty,
-                "remaining_stock": r.remaining_stock,
-                "efficiency": round(eff, 1),
+                "consumption": used,
+                "scrap": scrap,
+                "remaining_stock": int(r.remaining_stock or 0),
+                "efficiency": eff,
             }
         )
 
-        total_consumption += r.quantity_used
-        total_scrap += r.scrap_qty
+        total_consumption += used
+        total_scrap += scrap
         total_efficiency_sum += eff
 
     avg_efficiency = (total_efficiency_sum / len(records)) if records else 0
@@ -571,20 +540,21 @@ def export_reports():
 
     records = _get_report_data(start_date_str, end_date_str, station_id, part_id)
 
-    # Convert to DataFrame
     data = []
     for r in records:
-        total_qty = r.quantity_used + r.scrap_qty
-        eff = (r.quantity_used / total_qty * 100) if total_qty > 0 else 0
+        used = int(r.quantity_used or 0)
+        scrap = int(r.scrap_qty or 0)
+        total_qty = used + scrap
+        eff = round(float(used / total_qty * 100), 1) if total_qty > 0 else 0.0
         data.append(
             {
                 "Date": r.timestamp.strftime("%Y-%m-%d"),
                 "Station": r.station_name,
                 "Part Code": r.part_code,
                 "Part Name": r.part_name,
-                "Consumption": r.quantity_used,
-                "Scrap": r.scrap_qty,
-                "Remaining Stock": r.remaining_stock,
+                "Consumption": used,
+                "Scrap": scrap,
+                "Remaining Stock": int(r.remaining_stock or 0),
                 "Efficiency %": f"{eff:.1f}%",
             }
         )

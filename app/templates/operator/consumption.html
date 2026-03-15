@@ -1,227 +1,167 @@
-{# หน้าจอ "บันทึกการใช้อะไหล่" สำหรับพนักงาน ทำไมถึงมีหน้านี้? ->
-ใช้สำหรับคีย์ยอดการหยิบอะไหล่ไปใช้จริง และบันทึกจำนวนของเสียที่พบหน้าเครื่องครับ
-#} {% extends "base_operator.html" %} {% block title %}Consumption{% endblock %}
+{% extends "base_operator.html" %} 
+{% block title %}Consumption & Scrap{% endblock %}
 {% block content %}
-<div class="mb-4 d-flex justify-content-between align-items-center">
-  <div>
-    <h1 class="page-title">Actual Consumption & Scrap Input</h1>
-    <p class="page-subtitle">
-      Record actual part consumption and scrap quantities
-    </p>
-  </div>
-  <button
-    class="btn btn-primary px-4 d-flex align-items-center gap-2"
-    style="height: 40px"
-  >
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path
-        d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
-      ></path>
-      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-      <polyline points="7 3 7 8 15 8"></polyline>
-    </svg>
-    Save All
-  </button>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title mb-1">Actual Consumption & Scrap Input</h1>
+        <p class="page-subtitle mb-0">Record actual part consumption and scrap quantities</p>
+    </div>
+    <button type="submit" form="recordForm" class="btn btn-primary px-4 py-2 d-flex align-items-center gap-2" style="font-size: 13px; border-radius: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        Save All
+    </button>
 </div>
+
 
 <!-- Summary Cards -->
 <div class="row g-4 mb-4">
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm p-3">
-      <div class="text-muted small mb-1">Total Planned</div>
-      <div class="h4 mb-0">900 units</div>
+    <!-- Discrete Order Selection -->
+    <div class="col-12">
+        <div class="d-flex align-items-center gap-3 p-3 bg-white rounded shadow-sm border-0">
+            <span class="text-muted small fw-medium text-nowrap">Selected Order:</span>
+            <form id="orderSelectForm" method="GET" action="{{ url_for('operator.consumption') }}" class="flex-grow-1" style="max-width: 300px;">
+                <select name="order_id" class="form-select form-select-sm border-light shadow-none bg-light" onchange="this.form.submit()" required>
+                    {% if not order_id %}<option value="">-- No Active Order --</option>{% endif %}
+                    {% for plan in plans %}
+                    <option value="{{ plan.order_id }}" {% if order_id == plan.order_id %}selected{% endif %}>
+                        {{ plan.order_id }} ({{ plan.product_name }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% if not order_id %}
+            <span class="badge bg-warning text-dark" style="font-size: 10px;">No production plan selected</span>
+            {% endif %}
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm p-3">
-      <div class="text-muted small mb-1">Total Actual</div>
-      <div class="h4 mb-0">893 units</div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <div class="text-muted small mb-2" style="font-size: 11px;">Total Planned</div>
+            <div class="h3 mb-0 fw-medium text-dark">{{ "{:,}".format(total_planned) }} <span class="text-muted h6 mb-0">units</span></div>
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm p-3">
-      <div class="text-muted small mb-1">Total Scrap</div>
-      <div class="h4 mb-0 text-danger">7 units</div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <div class="text-muted small mb-2" style="font-size: 11px;">Total Actual</div>
+            <div class="h3 mb-0 fw-medium text-dark">{{ "{:,}".format(total_actual) }} <span class="text-muted h6 mb-0">units</span></div>
+        </div>
     </div>
-  </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <div class="text-muted small mb-2" style="font-size: 11px;">Total Scrap</div>
+            <div class="h3 mb-0 fw-medium text-danger">{{ "{:,}".format(total_scrap) }} <span class="text-muted h6 mb-0">units</span></div>
+        </div>
+    </div>
 </div>
 
 <!-- Add New Entry Form -->
 <div class="card border-0 shadow-sm mb-4">
-  <div class="p-4 border-bottom border-top bg-white">
-    <h5 class="card-title mb-0" style="font-size: 16px">Add New Entry</h5>
-  </div>
-  <div class="p-4">
-    <div class="row g-3">
-      <div class="col-md-2">
-        <label class="form-label text-muted small">Part Number</label>
-        <input type="text" class="form-control" placeholder="A-3421" />
-      </div>
-      <div class="col-md-3">
-        <label class="form-label text-muted small">Description</label>
-        <input
-          type="text"
-          class="form-control"
-          placeholder="Part description"
-        />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label text-muted small">Planned Qty</label>
-        <input type="number" class="form-control" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label text-muted small">Actual Qty</label>
-        <input type="number" class="form-control" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label text-muted small">Scrap Qty</label>
-        <input type="number" class="form-control" />
-      </div>
-      <div class="col-md-1 d-flex align-items-end">
-        <button
-          class="btn btn-success w-100 d-flex align-items-center justify-content-center gap-1"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Add
-        </button>
-      </div>
+    <div class="p-4 border-bottom bg-white">
+        <h5 class="card-title mb-0 fw-medium" style="font-size: 15px">Add New Entry</h5>
     </div>
-  </div>
+    <div class="p-4">
+        <form id="recordForm" action="{{ url_for('operator.submit_record') }}" method="POST">
+            <input type="hidden" name="order_id" value="{{ order_id }}">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Part Number</label>
+                    <select name="part_id" class="form-select border-light shadow-none bg-white" required style="font-size: 12px;">
+                        <option value="">Select Part</option>
+                        {% for part in parts %}
+                        <option value="{{ part.part_id }}">{{ part.part_id }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Description</label>
+                    <input type="text" class="form-control border-light bg-light" placeholder="Part description" readonly style="font-size: 12px;">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Planned Qty</label>
+                    <input type="number" name="planned_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Actual Qty</label>
+                    <input type="number" name="actual_qty" class="form-control border-light shadow-none" value="0" min="0" required style="font-size: 12px;">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Scrap Qty</label>
+                    <input type="number" name="scrap_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="border-radius: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span class="small fw-medium">Add</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
-<!-- Records Table -->
-<div class="card border-0 shadow-sm overflow-hidden">
-  <div class="p-4 border-bottom bg-white">
-    <h5 class="card-title mb-0" style="font-size: 16px">Consumption Records</h5>
-  </div>
-  <div class="table-responsive">
-    <table class="table mb-0" style="font-size: 13px">
-      <thead class="table-light">
-        <tr>
-          <th class="ps-4">Part Number</th>
-          <th>Description</th>
-          <th>Planned Qty</th>
-          <th>Actual Qty</th>
-          <th>Scrap Qty</th>
-          <th>Variance</th>
-          <th>Unit</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="align-middle border-bottom">
-          <td class="ps-4 fw-medium">A-3421</td>
-          <td>Main Shaft</td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center"
-              value="300"
-              style="width: 60px"
-            />
-          </td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center"
-              value="295"
-              style="width: 60px"
-            />
-          </td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center text-danger border-danger border-opacity-25 bg-danger bg-opacity-10"
-              value="5"
-              style="width: 60px"
-            />
-          </td>
-          <td>0</td>
-          <td>pcs</td>
-          <td class="text-center">
-            <span class="text-danger" style="cursor: pointer"
-              ><svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path
-                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                ></path></svg
-            ></span>
-          </td>
-        </tr>
-        <tr class="align-middle">
-          <td class="ps-4 fw-medium">B-1234</td>
-          <td>Bearing Set</td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center"
-              value="600"
-              style="width: 60px"
-            />
-          </td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center"
-              value="598"
-              style="width: 60px"
-            />
-          </td>
-          <td>
-            <input
-              type="text"
-              class="form-control form-control-sm text-center text-danger border-danger border-opacity-25 bg-danger bg-opacity-10"
-              value="2"
-              style="width: 60px"
-            />
-          </td>
-          <td>0</td>
-          <td>pcs</td>
-          <td>
-            <span class="text-danger" style="cursor: pointer"
-              ><svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path
-                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                ></path></svg
-            ></span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+<!-- Consumption Records Table -->
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
+    <div class="p-4 border-bottom bg-white">
+        <h5 class="card-title mb-0 fw-medium" style="font-size: 15px">Consumption Records</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr class="text-muted">
+                    <th class="ps-4 fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Part Number</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Description</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Planned Qty</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Actual Qty</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Scrap Qty</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Variance</th>
+                    <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Unit</th>
+                    <th class="text-center fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white" style="font-size: 11px;">
+                {% for record in records %}
+                <tr class="align-middle" style="border-bottom: 1px solid #f1f5f9">
+                    <td class="ps-4 text-dark fw-medium py-3">{{ record.part_id }}</td>
+                    <td class="text-muted py-3">{{ record.part.part_name }}</td>
+                    <td class="py-3">
+                        <input type="number" class="form-control form-control-sm border-light shadow-none text-center" value="{{ record.planned_qty }}" readonly style="width: 70px; font-size: 11px; background-color: #f8fafc !important;">
+                    </td>
+                    <td class="py-3">
+                        <input type="number" class="form-control form-control-sm border-light shadow-none text-center" value="{{ record.actual_qty }}" style="width: 70px; font-size: 11px;">
+                    </td>
+                    <td class="py-3">
+                        {% set scrap_total = record.scraps|sum(attribute='scrap_qty') %}
+                        <input type="number" class="form-control form-control-sm border-danger border-opacity-25 bg-danger bg-opacity-10 text-danger shadow-none text-center" value="{{ scrap_total }}" style="width: 70px; font-size: 11px;">
+                    </td>
+                    <td class="py-3">
+                        {% set variance = record.planned_qty - record.actual_qty %}
+                        <div class="text-center" style="width: 70px;">
+                            <span class="{% if variance < 0 %}text-danger{% else %}text-dark{% endif %}">
+                                {{ variance }}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="text-muted py-3">{{ record.part.unit or 'pcs' }}</td>
+                    <td class="text-center py-3">
+                        <button class="btn btn-link text-danger p-0" title="Remove Record">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted small">
+                        {% if not order_id %}
+                        Please select an active order to view records
+                        {% else %}
+                        No records found for this order
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

@@ -26,8 +26,8 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        from sqlalchemy import or_
 
+        from sqlalchemy import or_
         user = User.query.filter(
             or_(User.username == username, User.email == username)
         ).first()

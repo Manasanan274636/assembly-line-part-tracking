@@ -25,10 +25,17 @@ class Config:
         SQLALCHEMY_DATABASE_URI = (
             f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         )
+        
+        # Add connection pool recycle and pre-ping to prevent "Lost connection" errors
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_recycle": 280,
+            "pool_pre_ping": True,
+        }
+
         # SSL options might be needed for TiDB Cloud
         if os.environ.get("DB_SSL_CA"):
-            SQLALCHEMY_ENGINE_OPTIONS = {
-                "connect_args": {"ssl": {"ca": os.environ.get("DB_SSL_CA")}}
+            SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+                "ssl": {"ca": os.environ.get("DB_SSL_CA")}
             }
     else:
         BASE_DIR = os.path.abspath(os.path.dirname(__file__))

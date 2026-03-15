@@ -1,8 +1,4 @@
-# ไฟล์นี้เหมือน "สารบัญ" ของ Models ครับ เอาไว้รวบรวมไฟล์ Model ทั้งหมดให้เรียกใช้งานได้ง่ายๆ ในที่เดียว
-# ทำไมถึงมีไฟล์นี้? -> เพื่อให้โค้ดส่วนอื่น (เช่น Routes หรือ Database Setup) สามารถเขียนรวบยอดแค่ `from app.models import ...` ได้เลย ไม่ต้องวิ่งไปเรียกทีละไฟล์
-# มีหน้าที่สำคัญ:
-# - รวมทุก Class (User, Part, Station, etc.) มาไว้เป็นก้อนเดียว
-# - ช่วยให้ Flask-Migrate มองเห็นตารางทั้งหมดเวลาเราจะสร้างฐานข้อมูลใหม่ครับ
+# ไฟล์นี้รวมโมเดลทั้งหมดเพื่อให้เรียกใช้อ้างอิงได้ง่ายในหน้าเว็ปครับ
 
 from app.models.user import User
 from app.models.part import Part
@@ -11,3 +7,7 @@ from app.models.production_plan import ProductionPlan
 from app.models.bom import BOM
 from app.models.consumption import Consumption
 from app.models.stock import Stock
+from app.models.scrap import Scrap
+from app.models.claim import Claim
+from app.models.activity_log import ActivityLog
+from app.models.mapping_guide import MappingGuide

@@ -37,7 +37,7 @@
         >
       </div>
       <div class="text-muted small mb-1">Critical Stock</div>
-      <div class="h4 mb-0">2 Items</div>
+      <div class="h4 mb-0">{{ critical_count }} Items</div>
     </div>
   </div>
   <div class="col-md-4">
@@ -66,7 +66,7 @@
         >
       </div>
       <div class="text-muted small mb-1">Low Stock</div>
-      <div class="h4 mb-0">2 Items</div>
+      <div class="h4 mb-0">{{ low_count }} Items</div>
     </div>
   </div>
   <div class="col-md-4">
@@ -93,7 +93,7 @@
         >
       </div>
       <div class="text-muted small mb-1">Adequate Stock</div>
-      <div class="h4 mb-0">4 Items</div>
+      <div class="h4 mb-0">{{ adequate_count }} Items</div>
     </div>
   </div>
 </div>
@@ -158,188 +158,75 @@
   </div>
   <div class="table-responsive">
     <table class="table mb-0 align-middle" style="font-size: 13px">
-      <thead class="bg-light">
-        <tr>
-          <th class="ps-4 fw-medium text-muted py-3">Part Number</th>
-          <th class="fw-medium text-muted py-3">Description</th>
-          <th class="fw-medium text-muted py-3">Current Stock</th>
-          <th class="fw-medium text-muted py-3">Min Stock</th>
-          <th class="fw-medium text-muted py-3">Max Stock</th>
-          <th class="fw-medium text-muted py-3">Stock Level</th>
-          <th class="fw-medium text-muted py-3 text-center">Status</th>
+      <thead>
+        <tr class="text-muted">
+          <th class="ps-4 fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Part Number</th>
+          <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Description</th>
+          <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Current Stock</th>
+          <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Min Stock</th>
+          <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Max Stock</th>
+          <th class="fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Stock Level</th>
+          <th class="fw-medium py-3 border-0 text-center" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Status</th>
         </tr>
       </thead>
       <tbody id="stockTableBody">
-        <tr class="border-bottom" data-status="Adequate">
-          <td class="ps-4 fw-medium">A-3421</td>
-          <td class="text-muted">Main Shaft</td>
-          <td>450 pcs</td>
-          <td>200 pcs</td>
-          <td>1000 pcs</td>
+        {% for part in parts %}
+        {% set status = "Adequate" %}
+        {% set color = "success" %}
+        {% if part.stock_qty <= 0 %}
+            {% set status = "Critical" %}
+            {% set color = "danger" %}
+        {% elif part.stock_qty <= part.min_level %}
+            {% set status = "Low" %}
+            {% set color = "warning" %}
+        {% endif %}
+
+        {% set progress = (part.stock_qty / part.max_level * 100) if part.max_level and part.max_level > 0 else 0 %}
+        {% if progress > 100 %}{% set progress = 100 %}{% endif %}
+
+        <tr class="border-bottom" data-status="{{ status }}">
+          <td class="ps-4 fw-medium">{{ part.part_id }}</td>
+          <td class="text-muted">{{ part.part_name }}</td>
+          <td>{{ part.stock_qty }} {{ part.unit or 'pcs' }}</td>
+          <td>{{ part.min_level }} {{ part.unit or 'pcs' }}</td>
+          <td>{{ part.max_level or 'N/A' }} {{ part.unit or 'pcs' if part.max_level else '' }}</td>
           <td style="width: 200px">
             <div class="progress" style="height: 6px; width: 140px">
-              <div class="progress-bar bg-success" style="width: 45%"></div>
+              <div class="progress-bar bg-{{ color }}" style="width: {{ progress }}%"></div>
             </div>
           </td>
           <td class="text-center">
             <span
-              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
+              class="badge bg-{{ color }} bg-opacity-10 text-{{ color }} py-1 d-inline-flex align-items-center justify-content-start ps-2"
               style="font-size: 11px; width: 100px; border-radius: 10px"
             >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="me-1"
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              Adequate
+              {% if status == "Critical" %}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              {% elif status == "Low" %}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                    <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
+                    <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+              {% else %}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              {% endif %}
+              {{ status }}
             </span>
           </td>
         </tr>
-        <tr class="border-bottom" data-status="Low">
-          <td class="ps-4 fw-medium">B-1234</td>
-          <td>Bearing Set</td>
-          <td>180 pcs</td>
-          <td>200 pcs</td>
-          <td>800 pcs</td>
-          <td>
-            <div class="progress" style="height: 6px; width: 140px">
-              <div class="progress-bar bg-warning" style="width: 22%"></div>
-            </div>
-          </td>
-          <td class="text-center">
-            <span
-              class="badge bg-warning bg-opacity-10 text-warning py-1 d-inline-flex align-items-center justify-content-start ps-2"
-              style="font-size: 11px; width: 100px; border-radius: 10px"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="me-1"
-              >
-                <path d="M23 6l-9.5 9.5-5-5L1 18"></path>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              Low
-            </span>
-          </td>
+        {% else %}
+        <tr>
+            <td colspan="7" class="text-center py-5 text-muted small">
+                No inventory items found.
+            </td>
         </tr>
-        <tr class="border-bottom" data-status="Critical">
-          <td class="ps-4 fw-medium">C-5678</td>
-          <td class="text-muted">Gasket Kit</td>
-          <td>85 set</td>
-          <td>100 set</td>
-          <td>500 set</td>
-          <td>
-            <div class="progress" style="height: 6px; width: 140px">
-              <div class="progress-bar bg-danger" style="width: 17%"></div>
-            </div>
-          </td>
-          <td class="text-center">
-            <span
-              class="badge bg-danger bg-opacity-10 text-danger py-1 d-inline-flex align-items-center justify-content-start ps-2"
-              style="font-size: 11px; width: 100px; border-radius: 10px"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="me-1"
-              >
-                <path
-                  d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-                ></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-              Critical
-            </span>
-          </td>
-        </tr>
-        <tr class="border-bottom" data-status="Adequate">
-          <td class="ps-4 fw-medium">D-9012</td>
-          <td class="text-muted">Oil Seal</td>
-          <td>1500 pcs</td>
-          <td>300 pcs</td>
-          <td>2000 pcs</td>
-          <td>
-            <div class="progress" style="height: 6px; width: 140px">
-              <div class="progress-bar bg-success" style="width: 75%"></div>
-            </div>
-          </td>
-          <td class="text-center">
-            <span
-              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
-              style="font-size: 11px; width: 100px; border-radius: 10px"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="me-1"
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              Adequate
-            </span>
-          </td>
-        </tr>
-        <tr data-status="Adequate">
-          <td class="ps-4 fw-medium">E-3456</td>
-          <td class="text-muted">Bolt Set M12</td>
-          <td>2400 pcs</td>
-          <td>500 pcs</td>
-          <td>3000 pcs</td>
-          <td>
-            <div class="progress" style="height: 6px; width: 140px">
-              <div class="progress-bar bg-success" style="width: 80%"></div>
-            </div>
-          </td>
-          <td class="text-center">
-            <span
-              class="badge bg-success bg-opacity-10 text-success py-1 d-inline-flex align-items-center justify-content-start ps-2"
-              style="font-size: 11px; width: 100px; border-radius: 10px"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="me-1"
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              Adequate
-            </span>
-          </td>
-        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
