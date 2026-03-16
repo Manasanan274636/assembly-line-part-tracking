@@ -38,10 +38,10 @@ def index():
 
     # 1. KPI Stats
     # Total units in inventory (using stock_qty)
-    total_parts_units = db.session.query(func.sum(Part.current_stock)).scalar() or 0
+    total_parts_units = db.session.query(func.sum(Part.stock_qty)).scalar() or 0
     # Number of SKUs low on stock (using min_level)
     low_stock_count = Part.query.filter(
-        Part.current_stock <= Part.min_stock_level
+        Part.stock_qty <= Part.min_level
     ).count()
 
     # Total scrap units (from scrap table)
@@ -51,7 +51,7 @@ def index():
     alerts = []
     # Identify critical items
     critical_items = (
-        Part.query.filter(Part.current_stock < (Part.min_stock_level / 2))
+        Part.query.filter(Part.stock_qty < (Part.min_level / 2))
         .limit(3)
         .all()
     )
@@ -60,12 +60,12 @@ def index():
         alerts.append({
             "level": "CRITICAL",
             "title": "Stock Alert",
-            "message": f"{item.name} ({item.id}): Critical stock ({item.current_stock} {item.unit})",
+            "message": f"{item.part_name} ({item.part_id}): Critical stock ({item.stock_qty} {item.unit})",
             "time": "Recent"
         })
 
     # Get recent activity logs
-    recent_activities = ActivityLog.query.order_by(ActivityLog.id.desc()).limit(5).all()
+    recent_activities = ActivityLog.query.order_by(ActivityLog.activity_id.desc()).limit(5).all()
     activity_feed = []
     for log in recent_activities:
         activity_feed.append({
@@ -76,49 +76,49 @@ def index():
 
     # 3. Inventory & Usage Overview
     inventory_usage = []
-    parts = Part.query.order_by(Part.current_stock.asc()).limit(10).all()
+    parts = Part.query.order_by(Part.stock_qty.asc()).limit(10).all()
 
     for p in parts:
         # Sum of consumption
-        actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(part_id=p.id).scalar() or 0
+        actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(part_id=p.part_id).scalar() or 0
         
         # Calculate scrap for this part
         scrap_qty = (
             db.session.query(func.sum(Scrap.scrap_qty))
             .join(Consumption)
-            .filter(Consumption.part_id == p.id)
+            .filter(Consumption.part_id == p.part_id)
             .scalar() or 0
         )
 
         # Planned from BOM
         required_qty = (
-            db.session.query(func.sum(BOM.quantity_required))
+            db.session.query(func.sum(BOM.qty_per_unit))
             .join(Part)
-            .filter(Part.id == p.id)
+            .filter(Part.part_id == p.part_id)
             .scalar() or 0
         )
 
         status = "OK"
-        if p.current_stock == 0:
+        if p.stock_qty == 0:
             status = "CRITICAL"
-        elif p.current_stock <= p.min_stock_level:
+        elif p.stock_qty <= p.min_level:
             status = "Low Stock"
 
         inventory_usage.append({
-            "name": p.name,
-            "sku": p.id,
+            "name": p.part_name,
+            "sku": p.part_id,
             "required_qty": required_qty,
             "actual_used": actual_used,
             "scrap": scrap_qty,
-            "remaining_stock": p.current_stock,
+            "remaining_stock": p.stock_qty,
             "status": status,
         })
 
     # 4. Chart Data
     top_consumed = (
-        db.session.query(Part.name, func.sum(Consumption.actual_qty).label("total"))
+        db.session.query(Part.part_name, func.sum(Consumption.actual_qty).label("total"))
         .join(Consumption)
-        .group_by(Part.id)
+        .group_by(Part.part_id)
         .order_by(db.desc("total"))
         .limit(6)
         .all()
@@ -187,7 +187,7 @@ def submit_data():
     # Update part stock
     part = Part.query.get(part_id)
     if part:
-        part.current_stock -= (quantity_used + scrap_qty)
+        part.stock_qty -= (quantity_used + scrap_qty)
         
     db.session.add(new_consumption)
     db.session.flush() # Get consumption ID for scrap
@@ -205,7 +205,7 @@ def submit_data():
     log = ActivityLog(
         activity_type="Data Entry",
         reference_id=plan.order_id,
-        message=f"Admin recorded {quantity_used} units for {part.id}",
+        message=f"Admin recorded {quantity_used} units for {part.part_id}",
         created_by=current_user.id
     )
     db.session.add(log)
@@ -244,7 +244,7 @@ def upload_excel():
             station = Station.query.filter_by(
                 name=str(row["StationName"]).strip()
             ).first()
-            part = Part.query.filter_by(id=str(row["PartSKU"]).strip()).first()
+            part = Part.query.filter_by(part_id=str(row["PartSKU"]).strip()).first()
 
             if station and part:
                 # Find active plan
@@ -274,7 +274,7 @@ def upload_excel():
                         )
                         db.session.add(new_scrap)
                     
-                    part.current_stock -= (qty + scrap_qty)
+                    part.stock_qty -= (qty + scrap_qty)
                     success_count += 1
 
         if success_count > 0:
@@ -343,8 +343,8 @@ def production():
 
         for b in boms:
             part = b.part
-            qty_per_unit = b.quantity_required
-            calculated_required = qty_per_unit * plan.planned_qty
+            qty_per_unit = b.qty_per_unit
+            calculated_required = qty_per_unit * plan.quantity_planned
             total_items_required += calculated_required
 
             # Get actual consumption for this part in this plan
@@ -353,8 +353,8 @@ def production():
             ).scalar() or 0
 
             bom_items.append({
-                "part_code": part.id,
-                "part_name": part.name,
+                "part_code": part.part_id,
+                "part_name": part.part_name,
                 "qty_per_unit": round(qty_per_unit, 2),
                 "unit": part.unit or "pcs",
                 "calculated_required": calculated_required,
@@ -392,13 +392,13 @@ def stock():
     from app.models.claim import Claim
 
     # 1. Main Inventory Table
-    inventory = Part.query.order_by(Part.current_stock.asc()).all()
+    inventory = Part.query.order_by(Part.stock_qty.asc()).all()
 
     # 2. Recent Stock History (IN/OUT)
-    history = Stock.query.order_by(Stock.id.desc()).limit(20).all()
+    history = Stock.query.order_by(Stock.stock_id.desc()).limit(20).all()
 
     # 3. Pending & Recent Claims
-    claims = Claim.query.order_by(Claim.id.desc()).limit(10).all()
+    claims = Claim.query.order_by(Claim.claim_id.desc()).limit(10).all()
 
     return render_template(
         "admin/stock.html",
@@ -420,19 +420,19 @@ def _get_report_data(start_date_str, end_date_str, station_id, part_id):
     query = (
         db.session.query(
             Consumption.recorded_at.label("timestamp"),
-            Station.name.label("station_name"),
-            Part.id.label("part_code"),
-            Part.name.label("part_name"),
+            Station.station_name.label("station_name"),
+            Part.part_id.label("part_code"),
+            Part.part_name.label("part_name"),
             Consumption.actual_qty.label("quantity_used"),
             func.sum(Scrap.scrap_qty).label("scrap_qty"),
-            Part.current_stock.label("remaining_stock"),
-            ProductionPlan.planned_qty,
+            Part.stock_qty.label("remaining_stock"),
+            ProductionPlan.quantity_planned,
         )
-        .join(Station, Consumption.station_id == Station.id)
-        .join(Part, Consumption.part_id == Part.id)
+        .join(Station, Consumption.station_id == Station.station_id)
+        .join(Part, Consumption.part_id == Part.part_id)
         .join(ProductionPlan, Consumption.order_id == ProductionPlan.order_id)
-        .outerjoin(Scrap, Scrap.consumption_id == Consumption.id)
-        .group_by(Consumption.id, Station.id, Part.id, ProductionPlan.order_id)
+        .outerjoin(Scrap, Scrap.consumption_id == Consumption.consumption_id)
+        .group_by(Consumption.consumption_id, Station.station_id, Part.part_id, ProductionPlan.order_id)
     )
 
     # Apply filters

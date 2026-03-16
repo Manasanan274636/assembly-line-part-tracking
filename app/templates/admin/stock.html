@@ -37,14 +37,14 @@ block content %}
           <tbody>
             {% for item in inventory %}
             <tr class="align-middle">
-              <td class="ps-4 fw-bold text-primary">{{ item.id }}</td>
-              <td>{{ item.name }}</td>
-              <td class="text-end font-monospace">{{ item.current_stock }} {{ item.unit }}</td>
-              <td class="text-end text-muted">{{ item.min_stock_level }}</td>
+              <td class="ps-4 fw-bold text-primary">{{ item.part_id }}</td>
+              <td>{{ item.part_name }}</td>
+              <td class="text-end font-monospace">{{ item.stock_qty }} {{ item.unit }}</td>
+              <td class="text-end text-muted">{{ item.min_level }}</td>
               <td>
-                {% if item.current_stock <= 0 %}
+                {% if item.stock_qty <= 0 %}
                 <span class="badge bg-danger">Out of Stock</span>
-                {% elif item.current_stock <= item.min_stock_level %}
+                {% elif item.stock_qty <= item.min_level %}
                 <span class="badge bg-warning text-dark">Low Stock</span>
                 {% else %}
                 <span class="badge bg-success">OK</span>
@@ -115,8 +115,8 @@ block content %}
           <tbody>
             {% for claim in claims %}
             <tr>
-              <td class="ps-4 fw-bold">{{ claim.id }}</td>
-              <td>{{ claim.part.name if claim.part else 'N/A' }}</td>
+              <td class="ps-4 fw-bold">{{ claim.claim_id }}</td>
+              <td>{{ claim.part.part_name if claim.part else 'N/A' }}</td>
               <td class="text-end">{{ claim.qty }}</td>
               <td>
                 <span class="badge {% if claim.claim_status == 'Pending' %}bg-warning text-dark{% elif claim.claim_status == 'Approved' %}bg-success{% else %}bg-danger{% endif %}">

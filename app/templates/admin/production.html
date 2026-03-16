@@ -39,7 +39,7 @@ content %}
             </div>
             <div>
               <div class="text-secondary small fw-medium">Production Date</div>
-              <div class="fw-bold fs-6">{{ plan.target_date }}</div>
+              <div class="fw-bold fs-6">{{ plan.start_date }}</div>
             </div>
           </div>
         </div>
@@ -110,7 +110,7 @@ content %}
                 class="fw-bold text-primary"
                 style="font-size: 24px; letter-spacing: -0.02em"
               >
-                {{ plan.planned_qty }} units
+                {{ plan.quantity_planned }} units
               </div>
             </div>
           </div>
@@ -334,7 +334,7 @@ content %}
               class="fw-bold"
               style="color: #9333ea; font-size: 28px; letter-spacing: -0.02em"
             >
-              {{ plan.planned_qty }} units
+              {{ plan.quantity_planned }} units
             </div>
           </div>
         </div>

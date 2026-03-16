@@ -227,17 +227,17 @@
             <option value="all">All Stations</option>
             {% for s in stations %}
             <option
-              value="{{ s.id }}"
+              value="{{ s.station_id }}"
               {%
               if
-              s.id|string
+              s.station_id|string
               in
               [selected_station]
               %}selected{%
               endif
               %}
             >
-              {{ s.name }}
+              {{ s.station_name }}
             </option>
             {% endfor %}
           </select>
@@ -252,17 +252,17 @@
             <option value="all">All Parts</option>
             {% for p in parts %}
             <option
-              value="{{ p.id }}"
+              value="{{ p.part_id }}"
               {%
               if
-              p.id|string
+              p.part_id|string
               in
               [selected_part]
               %}selected{%
               endif
               %}
             >
-              {{ p.id }} - {{ p.name }}
+              {{ p.part_id }} - {{ p.part_name }}
             </option>
             {% endfor %}
           </select>
