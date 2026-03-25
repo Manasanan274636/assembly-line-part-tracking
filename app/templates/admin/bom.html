@@ -19,7 +19,10 @@
       <div class="row g-3 align-items-center">
         <div class="col-lg-7">
           <label class="form-label text-secondary fw-medium mb-2" style="font-size: 13px;">Search Product Model</label>
-          <input id="bomModelSearch" type="text" class="form-control bg-light border-0 p-3" placeholder="Type model name to filter BOM cards..." style="border-radius: 10px; font-size: 14px;">
+          <form method="GET" class="d-flex gap-2">
+            <input id="bomModelSearch" name="q" value="{{ q or '' }}" type="text" class="form-control bg-light border-0 p-3" placeholder="Type model name to filter BOM cards..." style="border-radius: 10px; font-size: 14px;">
+            <button type="submit" class="btn btn-outline-primary px-4" style="border-radius: 10px;">Search</button>
+          </form>
         </div>
         <div class="col-lg-5">
           <label class="form-label text-secondary fw-medium mb-2" style="font-size: 13px;">Quick Filter</label>

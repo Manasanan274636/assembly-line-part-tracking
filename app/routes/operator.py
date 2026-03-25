@@ -11,7 +11,7 @@ from app.models.claim import Claim
 from app.models.activity_log import ActivityLog
 from app.utils.time_utils import get_thai_today
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 bp = Blueprint("operator", __name__, url_prefix="/operator")
 
@@ -108,8 +108,42 @@ def index():
 @login_required
 @role_required("operator")
 def production():
-    plans = ProductionPlan.query.all()
-    return render_template("operator/production.html", plans=plans)
+    q = (request.args.get("q") or "").strip()
+    date_filter = request.args.get("date")
+    page = max(request.args.get("page", 1, type=int), 1)
+
+    query = ProductionPlan.query
+    if q:
+        query = query.filter(
+            or_(
+                ProductionPlan.order_id.ilike(f"%{q}%"),
+                ProductionPlan.product_name.ilike(f"%{q}%"),
+            )
+        )
+    if date_filter:
+        try:
+            parsed_date = datetime.strptime(date_filter, "%Y-%m-%d").date()
+            query = query.filter(ProductionPlan.start_date == parsed_date)
+        except ValueError:
+            date_filter = ""
+
+    query = query.order_by(ProductionPlan.start_date.desc(), ProductionPlan.order_id.desc())
+    total = query.count()
+    per_page = 12
+    plans = query.limit(per_page).offset((page - 1) * per_page).all()
+    total_pages = max((total + per_page - 1) // per_page, 1)
+
+    pagination = {
+        "page": page,
+        "total": total,
+        "total_pages": total_pages,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "prev_num": page - 1,
+        "next_num": page + 1,
+    }
+
+    return render_template("operator/production.html", plans=plans, pagination=pagination, q=q, date_filter=date_filter or "")
 
 
 @bp.route("/api/bom/<order_id>")
@@ -149,14 +183,20 @@ def get_bom(order_id):
 @role_required("operator")
 def consumption():
     order_id = request.args.get("order_id")
-    plans = ProductionPlan.query.filter_by(status="In Progress").all()
+    records_page_no = max(request.args.get("records_page", 1, type=int), 1)
+    plans = (
+        ProductionPlan.query.filter_by(status="In Progress")
+        .order_by(ProductionPlan.start_date.desc(), ProductionPlan.order_id.desc())
+        .limit(30)
+        .all()
+    )
     
     # Default to the first active plan if no order_id is provided
     if not order_id and plans:
         order_id = plans[0].order_id
 
-    parts = Part.query.all()
-    stations = Station.query.all()
+    parts = Part.query.filter_by(is_active=1).order_by(Part.part_name.asc()).limit(300).all()
+    stations = Station.query.filter_by(is_active=1).order_by(Station.station_name.asc()).all()
     
     # Calculate summaries if order is selected
     total_planned = 0
@@ -170,7 +210,32 @@ def consumption():
         total_planned = selected_plan.quantity_planned if selected_plan else 0
         total_actual = db.session.query(func.sum(Consumption.actual_qty)).filter_by(order_id=order_id).scalar() or 0
         total_scrap = db.session.query(func.sum(Scrap.scrap_qty)).join(Consumption).filter(Consumption.order_id == order_id).scalar() or 0
-        records = Consumption.query.filter_by(order_id=order_id).order_by(Consumption.recorded_at.desc()).all()
+        records_query = (
+            Consumption.query.filter_by(order_id=order_id)
+            .order_by(Consumption.recorded_at.desc())
+        )
+        total_records = records_query.count()
+        per_page = 20
+        records = records_query.limit(per_page).offset((records_page_no - 1) * per_page).all()
+        records_pagination = {
+            "page": records_page_no,
+            "total": total_records,
+            "total_pages": max((total_records + per_page - 1) // per_page, 1),
+            "has_prev": records_page_no > 1,
+            "has_next": records_page_no * per_page < total_records,
+            "prev_num": records_page_no - 1,
+            "next_num": records_page_no + 1,
+        }
+    else:
+        records_pagination = {
+            "page": 1,
+            "total": 0,
+            "total_pages": 1,
+            "has_prev": False,
+            "has_next": False,
+            "prev_num": 1,
+            "next_num": 1,
+        }
         
     return render_template(
         "operator/consumption.html", 
@@ -182,7 +247,8 @@ def consumption():
         total_planned=total_planned,
         total_actual=total_actual,
         total_scrap=total_scrap,
-        records=records
+        records=records,
+        records_pagination=records_pagination,
     )
 
 

@@ -21,8 +21,29 @@ from datetime import datetime
 from flask_login import login_required
 from app.utils.decorators import role_required
 from app.utils.db import db
+from sqlalchemy import func, or_
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+def _paginate_query(query, per_page=12, page_param="page"):
+    page = request.args.get(page_param, 1, type=int)
+    page = max(page, 1)
+    total = query.count()
+    items = query.limit(per_page).offset((page - 1) * per_page).all()
+    total_pages = max((total + per_page - 1) // per_page, 1)
+    return {
+        "items": items,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "prev_num": page - 1,
+        "next_num": page + 1,
+        "page_param": page_param,
+    }
 
 
 @bp.route("/")
@@ -168,8 +189,18 @@ def index():
 @role_required("admin")
 def users():
     from app.models.user import User
-    users_list = User.query.all()
-    return render_template("admin/users.html", users=users_list)
+    q = (request.args.get("q") or "").strip()
+    query = User.query.order_by(User.user_id.desc())
+    if q:
+        query = query.filter(
+            or_(
+                User.username.ilike(f"%{q}%"),
+                User.email.ilike(f"%{q}%"),
+                User.role.ilike(f"%{q}%"),
+            )
+        )
+    users_page = _paginate_query(query, per_page=10)
+    return render_template("admin/users.html", users=users_page["items"], pagination=users_page, q=q)
 
 
 @bp.route("/users/add", methods=["POST"])
@@ -288,8 +319,34 @@ def edit_user(user_id):
 @role_required("admin")
 def parts():
     from app.models.part import Part
-    parts_list = Part.query.order_by(Part.part_name.asc()).all()
-    return render_template("admin/parts.html", parts=parts_list)
+    q = (request.args.get("q") or "").strip()
+    stock_sort = request.args.get("stock_sort", "name")
+    query = Part.query
+    if q:
+        query = query.filter(
+            or_(
+                Part.part_id.ilike(f"%{q}%"),
+                Part.part_name.ilike(f"%{q}%"),
+                Part.unit.ilike(f"%{q}%"),
+            )
+        )
+
+    if stock_sort == "stock_desc":
+        query = query.order_by(Part.stock_qty.desc(), Part.part_name.asc())
+    elif stock_sort == "stock_asc":
+        query = query.order_by(Part.stock_qty.asc(), Part.part_name.asc())
+    else:
+        stock_sort = "name"
+        query = query.order_by(Part.part_name.asc())
+
+    parts_page = _paginate_query(query, per_page=10)
+    return render_template(
+        "admin/parts.html",
+        parts=parts_page["items"],
+        pagination=parts_page,
+        q=q,
+        stock_sort=stock_sort,
+    )
 
 
 @bp.route("/parts/add", methods=["POST"])
@@ -502,8 +559,17 @@ def download_parts_template():
 @role_required("admin")
 def stations():
     from app.models.station import Station
-    stations_list = Station.query.order_by(Station.station_id.asc()).all()
-    return render_template("admin/stations.html", stations=stations_list)
+    q = (request.args.get("q") or "").strip()
+    query = Station.query.order_by(Station.station_id.asc())
+    if q:
+        query = query.filter(
+            or_(
+                Station.station_name.ilike(f"%{q}%"),
+                Station.description.ilike(f"%{q}%"),
+            )
+        )
+    stations_page = _paginate_query(query, per_page=10)
+    return render_template("admin/stations.html", stations=stations_page["items"], pagination=stations_page, q=q)
 
 
 @bp.route("/stations/add", methods=["POST"])
@@ -611,12 +677,17 @@ def bom():
     from app.models.bom import BOM
     from app.models.part import Part
     from app.models.activity_log import ActivityLog
-    
+    q = (request.args.get("q") or "").strip()
+
     # Query all parts for the select dropdown
     parts = Part.query.filter_by(is_active=1).order_by(Part.part_name).all()
-    
+
+    bom_query = BOM.query
+    if q:
+        bom_query = bom_query.filter(BOM.model.ilike(f"%{q}%"))
+
     # Get all BOM entries
-    bom_entries = BOM.query.order_by(BOM.model, BOM.part_id).all()
+    bom_entries = bom_query.order_by(BOM.model, BOM.part_id).all()
     
     # Group BOM entries by model for display
     bom_grouped = {}
@@ -625,23 +696,32 @@ def bom():
             bom_grouped[b.model] = []
         bom_grouped[b.model].append(b)
 
+    ref_ids = [f"BOM_{model_name}" for model_name in bom_grouped.keys()]
+    log_summary = {}
+    if ref_ids:
+        log_rows = (
+            db.session.query(
+                ActivityLog.reference_id,
+                func.min(ActivityLog.created_at).label("created_at"),
+                func.max(ActivityLog.created_at).label("updated_at"),
+            )
+            .filter(ActivityLog.reference_id.in_(ref_ids))
+            .group_by(ActivityLog.reference_id)
+            .all()
+        )
+        log_summary = {
+            row.reference_id: {"created_at": row.created_at, "updated_at": row.updated_at}
+            for row in log_rows
+        }
+
     bom_meta = {}
     for model_name, entries in bom_grouped.items():
         ref_id = f"BOM_{model_name}"
-        created_log = (
-            ActivityLog.query.filter_by(reference_id=ref_id)
-            .order_by(ActivityLog.created_at.asc())
-            .first()
-        )
-        updated_log = (
-            ActivityLog.query.filter_by(reference_id=ref_id)
-            .order_by(ActivityLog.created_at.desc())
-            .first()
-        )
+        log_info = log_summary.get(ref_id, {})
         bom_meta[model_name] = {
             "parts_count": len(entries),
-            "created_at": created_log.created_at if created_log else None,
-            "updated_at": updated_log.created_at if updated_log else None,
+            "created_at": log_info.get("created_at"),
+            "updated_at": log_info.get("updated_at"),
         }
         
     return render_template(
@@ -649,6 +729,7 @@ def bom():
         bom_grouped=bom_grouped,
         bom_meta=bom_meta,
         parts=parts,
+        q=q,
     )
 
 
@@ -1229,20 +1310,34 @@ def stock():
     from app.models.stock import Stock
     from app.models.claim import Claim
 
-    # 1. Main Inventory Table
-    inventory = Part.query.order_by(Part.stock_qty.asc()).all()
+    q = (request.args.get("q") or "").strip()
+    inventory_query = Part.query.order_by(Part.stock_qty.asc(), Part.part_name.asc())
+    if q:
+        inventory_query = inventory_query.filter(
+            or_(
+                Part.part_id.ilike(f"%{q}%"),
+                Part.part_name.ilike(f"%{q}%"),
+                Part.unit.ilike(f"%{q}%"),
+            )
+        )
 
-    # 2. Recent Stock History (IN/OUT)
-    history = Stock.query.order_by(Stock.stock_id.desc()).limit(20).all()
-
-    # 3. Pending & Recent Claims
-    claims = Claim.query.order_by(Claim.claim_id.desc()).limit(10).all()
+    inventory_page = _paginate_query(inventory_query, per_page=10, page_param="inv_page")
+    history_page = _paginate_query(
+        Stock.query.order_by(Stock.stock_id.desc()), per_page=10, page_param="hist_page"
+    )
+    claims_page = _paginate_query(
+        Claim.query.order_by(Claim.claim_id.desc()), per_page=10, page_param="claim_page"
+    )
 
     return render_template(
         "admin/stock.html",
-        inventory=inventory,
-        history=history,
-        claims=claims
+        inventory=inventory_page["items"],
+        history=history_page["items"],
+        claims=claims_page["items"],
+        inventory_pagination=inventory_page,
+        history_pagination=history_page,
+        claims_pagination=claims_page,
+        q=q,
     )
 
 
@@ -1293,8 +1388,7 @@ def _get_report_data(start_date_str, end_date_str, station_id, part_id):
     if part_id and part_id != "all":
         query = query.filter(Consumption.part_id == part_id)
 
-    records = query.order_by(Consumption.recorded_at.desc()).all()
-    return records
+    return query.order_by(Consumption.recorded_at.desc())
 
 
 @bp.route("/reports")
@@ -1310,7 +1404,9 @@ def reports():
     station_id = request.args.get("station_id")
     part_id = request.args.get("part_id")
 
-    records = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+    records_query = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+    reports_page = _paginate_query(records_query, per_page=20, page_param="page")
+    records = reports_page["items"]
 
     # Process records for template
     report_data = []
@@ -1360,6 +1456,7 @@ def reports():
         selected_part=part_id,
         stations=all_stations,
         parts=all_parts,
+        pagination=reports_page,
     )
 
 
@@ -1376,7 +1473,7 @@ def export_reports():
     station_id = request.args.get("station_id")
     part_id = request.args.get("part_id")
 
-    records = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+    records = _get_report_data(start_date_str, end_date_str, station_id, part_id).all()
 
     data = []
     for r in records:

@@ -175,4 +175,12 @@
         </table>
     </div>
 </div>
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="text-muted small">Showing {{ records|length }} of {{ records_pagination.total }} record(s)</div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary {% if not records_pagination.has_prev %}disabled{% endif %}" href="{{ url_for('operator.consumption', order_id=order_id, records_page=records_pagination.prev_num) if records_pagination.has_prev else '#' }}">Previous</a>
+        <span class="btn btn-sm btn-light disabled">Page {{ records_pagination.page }} / {{ records_pagination.total_pages }}</span>
+        <a class="btn btn-sm btn-outline-secondary {% if not records_pagination.has_next %}disabled{% endif %}" href="{{ url_for('operator.consumption', order_id=order_id, records_page=records_pagination.next_num) if records_pagination.has_next else '#' }}">Next</a>
+    </div>
+</div>
 {% endblock %}
