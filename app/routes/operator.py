@@ -135,7 +135,8 @@ def get_bom(order_id):
         data.append({
             "id": p.part_id,
             "desc": p.part_name,
-            "req": b.qty_per_unit,
+            "req": b.qty_per_unit * plan.quantity_planned,
+            "per_unit": b.qty_per_unit,
             "unit": p.unit or "pcs",
             "stock": p.stock_qty,
             "status": status
@@ -162,9 +163,11 @@ def consumption():
     total_actual = 0
     total_scrap = 0
     records = []
-    
+    selected_plan = None
+
     if order_id:
-        total_planned = db.session.query(func.sum(Consumption.planned_qty)).filter_by(order_id=order_id).scalar() or 0
+        selected_plan = ProductionPlan.query.get(order_id)
+        total_planned = selected_plan.quantity_planned if selected_plan else 0
         total_actual = db.session.query(func.sum(Consumption.actual_qty)).filter_by(order_id=order_id).scalar() or 0
         total_scrap = db.session.query(func.sum(Scrap.scrap_qty)).join(Consumption).filter(Consumption.order_id == order_id).scalar() or 0
         records = Consumption.query.filter_by(order_id=order_id).order_by(Consumption.recorded_at.desc()).all()
@@ -174,6 +177,7 @@ def consumption():
         plans=plans, 
         parts=parts, 
         stations=stations,
+        selected_plan=selected_plan,
         order_id=order_id,
         total_planned=total_planned,
         total_actual=total_actual,
@@ -216,6 +220,7 @@ def submit_record():
     order_id = request.form.get("order_id")
     part_id = request.form.get("part_id")
     station_id = request.form.get("station_id")
+    planned_qty = int(request.form.get("planned_qty", 0))
     actual_qty = int(request.form.get("actual_qty", 0))
     scrap_qty = int(request.form.get("scrap_qty", 0))
     claim_qty = int(request.form.get("claim_qty", 0))
@@ -227,6 +232,7 @@ def submit_record():
             order_id=order_id,
             part_id=part_id,
             station_id=station_id,
+            planned_qty=planned_qty,
             actual_qty=actual_qty,
             recorded_by=current_user.user_id
         )

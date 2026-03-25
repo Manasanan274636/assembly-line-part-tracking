@@ -16,6 +16,10 @@ class User(UserMixin, db.Model):
     def get_id(self):
         return str(self.user_id)
 
+    @property
+    def is_active(self):
+        return self.is_active_flag == 1
+
     def set_password(self, password):
         from werkzeug.security import generate_password_hash
         self.password = generate_password_hash(password)

@@ -1,0 +1,167 @@
+{% extends "base_admin.html" %} 
+{% block title %}User Management{% endblock %} 
+
+{% block content %}
+<div class="py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1" style="font-size: 20px; font-weight: 600; color: #1e293b">User Management</h4>
+      <p class="mb-0 text-muted" style="font-size: 14px">Manage system access, roles, and employee accounts.</p>
+    </div>
+    <button class="btn d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addUserModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-size: 14px; font-weight: 500;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Add New User
+    </button>
+  </div>
+
+  <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 14px">
+        <thead style="background-color: #f8fafc;">
+          <tr>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">USERNAME</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">EMAIL</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">ROLE</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">STATUS</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold text-end" style="font-size: 13px">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td class="px-4 py-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width: 36px; height: 36px; background-color: {% if user.role == 'admin' %}#eff6ff{% else %}#f8fafc{% endif %}; color: {% if user.role == 'admin' %}#2563eb{% else %}#64748b{% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+                  {{ user.username[0]|upper }}
+                </div>
+                <div class="fw-medium text-dark">{{ user.username }}</div>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-muted">{{ user.email }}</td>
+            <td class="px-4 py-3">
+              {% if user.role == 'admin' %}
+              <span class="badge" style="background-color: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 5px 10px; font-weight: 500">Administrator</span>
+              {% else %}
+              <span class="badge" style="background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 5px 10px; font-weight: 500">Operator</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              {% if user.is_active_flag == 1 %}
+              <span class="d-flex align-items-center gap-2 text-success" style="font-size: 13px; font-weight: 500;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #10b981;"></div> Active
+              </span>
+              {% else %}
+              <span class="d-flex align-items-center gap-2 text-danger" style="font-size: 13px; font-weight: 500;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #ef4444;"></div> Inactive
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-end">
+              <div class="d-flex justify-content-end gap-2">
+                <button class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editUserModal{{ user.user_id }}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                  Edit
+                </button>
+                
+                {% if user.user_id != current_user.user_id %}
+                <form action="{{ url_for('admin.toggle_user', user_id=user.user_id) }}" method="POST" class="m-0">
+                  <button type="submit" class="btn btn-sm px-3 {% if user.is_active_flag == 1 %}btn-outline-danger{% else %}btn-outline-success{% endif %}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                    {% if user.is_active_flag == 1 %}Disable{% else %}Enable{% endif %}
+                  </button>
+                </form>
+                {% else %}
+                <span class="text-muted d-flex align-items-center" style="font-size: 12px; font-style: italic; padding: 0 10px;">Current Admin</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Edit User Modal -->
+          <div class="modal fade" id="editUserModal{{ user.user_id }}" tabindex="-1" aria-labelledby="editUserModalLabel{{ user.user_id }}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                  <h5 class="modal-title fw-semibold" id="editUserModalLabel{{ user.user_id }}" style="color: #0f172a;">Edit User</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 text-start">
+                  <form action="{{ url_for('admin.edit_user', user_id=user.user_id) }}" method="POST">
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Username *</label>
+                       <input type="text" class="form-control bg-light border-0 p-3" name="username" value="{{ user.username }}" required style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Email Address</label>
+                       <input type="email" class="form-control bg-light border-0 p-3" name="email" value="{{ user.email or '' }}" required style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Role *</label>
+                       <select class="form-select bg-light border-0 p-3" name="role" required style="border-radius: 8px; font-size: 14px">
+                         <option value="operator" {% if user.role == 'operator' %}selected{% endif %}>Operator (Production Line)</option>
+                         <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrator</option>
+                       </select>
+                    </div>
+                    <div class="mb-4">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">New Password</label>
+                       <input type="password" class="form-control bg-light border-0 p-3" name="password" minlength="6" placeholder="Leave blank to keep current password" style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <button type="submit" class="btn w-100 py-3" style="background-color: #3b82f6; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+                       Save Changes
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% if not users %}
+          <tr>
+            <td colspan="5" class="text-center py-5 text-muted">No users found.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-semibold" id="addUserModalLabel" style="color: #0f172a;">Add New User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form action="{{ url_for('admin.add_user') }}" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Username *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="username" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Email Address</label>
+            <input type="email" class="form-control bg-light border-0 p-3" name="email" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Role *</label>
+            <select class="form-select bg-light border-0 p-3" name="role" required style="border-radius: 8px; font-size: 14px">
+              <option value="operator" selected>Operator (Production Line)</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Password *</label>
+            <input type="password" class="form-control bg-light border-0 p-3" name="password" required minlength="6" style="border-radius: 8px; font-size: 14px">
+          </div>
+          <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+            Create User Account
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

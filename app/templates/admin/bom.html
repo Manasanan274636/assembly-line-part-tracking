@@ -1,0 +1,455 @@
+{% extends "base_admin.html" %} 
+{% block title %}BOM Configurator{% endblock %} 
+
+{% block content %}
+<div class="py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1" style="font-size: 20px; font-weight: 600; color: #1e293b">Bill of Materials (BOM) Configurator</h4>
+      <p class="mb-0 text-muted" style="font-size: 14px">Each product model should contain multiple parts with quantity required per 1 built unit.</p>
+    </div>
+    <button class="btn d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addBomEntryModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-size: 14px; font-weight: 500;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Build BOM
+    </button>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+    <div class="card-body p-3 p-md-4">
+      <div class="row g-3 align-items-center">
+        <div class="col-lg-7">
+          <label class="form-label text-secondary fw-medium mb-2" style="font-size: 13px;">Search Product Model</label>
+          <input id="bomModelSearch" type="text" class="form-control bg-light border-0 p-3" placeholder="Type model name to filter BOM cards..." style="border-radius: 10px; font-size: 14px;">
+        </div>
+        <div class="col-lg-5">
+          <label class="form-label text-secondary fw-medium mb-2" style="font-size: 13px;">Quick Filter</label>
+          <select id="bomSortFilter" class="form-select bg-light border-0 p-3" style="border-radius: 10px; font-size: 14px;">
+            <option value="all">Show all models</option>
+            <option value="recent">Recently updated first</option>
+            <option value="name">Sort by model name</option>
+            <option value="parts_desc">Models with most parts first</option>
+          </select>
+        </div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <div id="bomModelCount" class="text-muted small">Showing {{ bom_grouped|length }} model(s)</div>
+        <div class="text-muted small">Recommended extra fields: revision/version, status active/inactive, and note/remark per model.</div>
+      </div>
+    </div>
+  </div>
+
+  {% if bom_grouped %}
+      <div id="bomCardsContainer" class="row">
+      {% for model, entries in bom_grouped.items() %}
+          <div
+            class="col-md-6 mb-4 bom-model-card"
+            data-model="{{ model|lower }}"
+            data-parts="{{ bom_meta[model].parts_count }}"
+            data-updated="{% if bom_meta[model].updated_at %}{{ bom_meta[model].updated_at.strftime('%Y%m%d%H%M%S') }}{% else %}0{% endif %}"
+          >
+              <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; overflow: hidden;">
+                  <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4">
+                      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                          <h5 class="fw-bold mb-1" style="color: #0f172a;">Product: {{ model }}</h5>
+                          <div class="text-muted small">
+                            Created:
+                            {% if bom_meta[model].created_at %}
+                              {{ bom_meta[model].created_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                              -
+                            {% endif %}
+                          </div>
+                          <div class="text-muted small">
+                            Last Updated:
+                            {% if bom_meta[model].updated_at %}
+                              {{ bom_meta[model].updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                              -
+                            {% endif %}
+                          </div>
+                        </div>
+                        <div class="d-flex flex-column align-items-end gap-2">
+                          <span class="badge" style="background-color: #f1f5f9; color: #475569;">{{ entries|length }} Parts</span>
+                          <button type="button" class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editBomModelModal{{ loop.index }}" style="border-radius: 8px;">
+                            Edit Model
+                          </button>
+                        </div>
+                      </div>
+                  </div>
+                  <div class="card-body px-0 pb-0">
+                      <table class="table table-hover align-middle mb-0" style="font-size: 13px">
+                          <thead style="background-color: #f8fafc;">
+                              <tr>
+                                  <th class="border-0 px-4 py-2 text-secondary fw-semibold">PART (SKU)</th>
+                                  <th class="border-0 px-4 py-2 text-secondary fw-semibold text-center">QTY / UNIT</th>
+                                  <th class="border-0 px-4 py-2 text-secondary fw-semibold text-end">ACTION</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {% for item in entries %}
+                              <tr>
+                                  <td class="px-4 py-3">
+                                      <div class="fw-medium text-dark">{{ item.part_id }}</div>
+                                      <div class="text-muted small">{{ item.part.part_name if item.part else 'Unknown Part' }}</div>
+                                  </td>
+                                  <td class="px-4 py-3 text-center fw-semibold text-primary" style="font-size: 14px;">
+                                      {{ item.qty_per_unit }}
+                                  </td>
+                                  <td class="px-4 py-3 text-end">
+                                      <div class="d-flex justify-content-end gap-2">
+                                          <button type="button" class="btn btn-sm btn-outline-primary px-2" data-bs-toggle="modal" data-bs-target="#editBomModal{{ model|replace(' ', '_') }}{{ loop.index }}" style="border-radius: 6px;">
+                                              Edit
+                                          </button>
+                                          <form action="{{ url_for('admin.delete_bom_entry', model_name=model, part_id=item.part_id) }}" method="POST" class="m-0" onsubmit="return confirm('Remove part {{ item.part_id }} from {{ model }} BOM?');">
+                                              <button type="submit" class="btn btn-sm btn-outline-danger p-1" style="border-radius: 6px;">
+                                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                              </button>
+                                          </form>
+                                      </div>
+                                  </td>
+                              </tr>
+                              <div class="modal fade" id="editBomModal{{ model|replace(' ', '_') }}{{ loop.index }}" tabindex="-1" aria-hidden="true">
+                                  <div class="modal-dialog modal-dialog-centered">
+                                      <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+                                          <div class="modal-header border-0 pb-0 pt-4 px-4">
+                                              <h5 class="modal-title fw-semibold" style="color: #0f172a;">Edit BOM Quantity</h5>
+                                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                          </div>
+                                          <div class="modal-body p-4">
+                                              <form action="{{ url_for('admin.edit_bom_entry', model_name=model, part_id=item.part_id) }}" method="POST">
+                                                  <div class="mb-3">
+                                                      <label class="form-label fw-medium text-secondary" style="font-size: 13px">Product Model</label>
+                                                      <input type="text" class="form-control bg-light border-0 p-3" value="{{ model }}" disabled style="border-radius: 8px; font-size: 14px">
+                                                  </div>
+                                                  <div class="mb-3">
+                                                      <label class="form-label fw-medium text-secondary" style="font-size: 13px">Part</label>
+                                                      <input type="text" class="form-control bg-light border-0 p-3" value="{{ item.part_id }} : {{ item.part.part_name if item.part else 'Unknown Part' }}" disabled style="border-radius: 8px; font-size: 14px">
+                                                  </div>
+                                                  <div class="mb-4">
+                                                      <label class="form-label fw-medium text-secondary" style="font-size: 13px">Quantity per Unit *</label>
+                                                      <input type="number" min="1" name="qty_per_unit" class="form-control bg-light border-0 p-3" value="{{ item.qty_per_unit }}" required style="border-radius: 8px; font-size: 14px">
+                                                  </div>
+                                                  <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+                                                      Save BOM Quantity
+                                                  </button>
+                                              </form>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                              {% endfor %}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+          <div class="modal fade" id="editBomModelModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
+              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                  <div>
+                    <h5 class="modal-title fw-semibold" style="color: #0f172a;">Edit BOM Model</h5>
+                    <div class="text-muted small">{{ model }} | Update parts, quantities, add new items, or remove old ones</div>
+                  </div>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <form action="{{ url_for('admin.edit_bom_model', model_name=model) }}" method="POST">
+                    <div class="mb-3">
+                      <label class="form-label fw-medium text-secondary" style="font-size: 13px">Product Model</label>
+                      <input type="text" class="form-control bg-light border-0 p-3" value="{{ model }}" disabled style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <label class="form-label fw-medium text-secondary mb-0" style="font-size: 13px">Parts in This Model</label>
+                      <button type="button" class="btn btn-sm btn-outline-primary px-3 add-edit-bom-row" data-target="editBomRowsContainer{{ loop.index }}" data-template="editBomRowTemplate" style="border-radius: 8px;">
+                        + Add Part
+                      </button>
+                    </div>
+                    <div class="rounded-3 border overflow-hidden mb-4" style="border-color: #e2e8f0 !important;">
+                      <div class="table-responsive">
+                        <table class="table mb-0 align-middle" style="font-size: 13px;">
+                          <thead style="background-color: #f8fafc;">
+                            <tr>
+                              <th class="border-0 px-3 py-3 text-secondary">Search Part</th>
+                              <th class="border-0 px-3 py-3 text-secondary text-center" style="width: 170px;">Qty / Unit</th>
+                              <th class="border-0 px-3 py-3 text-secondary text-center" style="width: 100px;">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody id="editBomRowsContainer{{ loop.index }}">
+                            {% for item in entries %}
+                            <tr class="bom-row">
+                              <td class="px-3 py-3">
+                                <input
+                                  type="text"
+                                  class="form-control bg-light border-0 bom-part-search"
+                                  list="partsCatalog"
+                                  value="{{ item.part_id }} | {{ item.part.part_name if item.part else '' }}"
+                                  placeholder="Type part code or part name"
+                                  style="border-radius: 8px; font-size: 14px"
+                                >
+                                <input type="hidden" name="part_id" value="{{ item.part_id }}">
+                              </td>
+                              <td class="px-3 py-3 text-center">
+                                <input type="number" step="1" min="1" class="form-control bg-light border-0 text-center" name="qty_per_unit" value="{{ item.qty_per_unit }}" required style="border-radius: 8px; font-size: 14px">
+                              </td>
+                              <td class="px-3 py-3 text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-bom-row" style="border-radius: 8px;">Remove</button>
+                              </td>
+                            </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+                      Save Model Changes
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+      {% endfor %}
+      </div>
+  {% else %}
+  <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+      <div class="card-body text-center py-5">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" class="mb-3"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          <h5 class="fw-medium text-secondary">No BOM configs found</h5>
+          <p class="text-muted smaller mb-4">You have not defined any parts required for your product models.</p>
+          <button class="btn btn-primary px-4 py-2" data-bs-toggle="modal" data-bs-target="#addBomEntryModal" style="border-radius: 8px; font-size: 14px; font-weight: 500;">Create First BOM Entry</button>
+      </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add BOM Entry Modal -->
+<div class="modal fade" id="addBomEntryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-semibold" style="color: #0f172a;">Create Product BOM</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form action="{{ url_for('admin.add_bom_entry') }}" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Product Model *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="model" placeholder="e.g. Model X, Sedan-A" required style="border-radius: 8px; font-size: 14px" list="existingModels">
+            <datalist id="existingModels">
+              {% for model in bom_grouped.keys() %}
+              <option value="{{ model }}">
+              {% endfor %}
+            </datalist>
+            <div class="form-text" style="font-size: 11px;">Enter one model, then add all parts required to build 1 complete vehicle/unit.</div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label fw-medium text-secondary mb-0" style="font-size: 13px">Required Parts for 1 Unit *</label>
+            <button type="button" id="addBomRowBtn" class="btn btn-sm btn-outline-primary px-3 add-edit-bom-row" data-target="bomRowsContainer" data-template="bomRowTemplate" style="border-radius: 8px;">
+              + Add Row
+            </button>
+          </div>
+          <div class="rounded-3 border overflow-hidden mb-3" style="border-color: #e2e8f0 !important;">
+            <div class="table-responsive">
+              <table class="table mb-0 align-middle" style="font-size: 13px;">
+                <thead style="background-color: #f8fafc;">
+                  <tr>
+                    <th class="border-0 px-3 py-3 text-secondary">Part</th>
+                    <th class="border-0 px-3 py-3 text-secondary text-center" style="width: 180px;">Qty / Unit</th>
+                    <th class="border-0 px-3 py-3 text-secondary text-center" style="width: 100px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="bomRowsContainer">
+                  <tr class="bom-row">
+                    <td class="px-3 py-3">
+                      <input
+                        type="text"
+                        class="form-control bg-light border-0 bom-part-search"
+                        list="partsCatalog"
+                        placeholder="Type part code or part name"
+                        style="border-radius: 8px; font-size: 14px"
+                      >
+                      <input type="hidden" name="part_id" value="">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                      <input type="number" step="1" min="1" class="form-control bg-light border-0 text-center" name="qty_per_unit" value="1" required style="border-radius: 8px; font-size: 14px">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                      <button type="button" class="btn btn-sm btn-outline-danger remove-bom-row" style="border-radius: 8px;">
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="alert alert-light border mb-4" style="font-size: 12px; border-radius: 10px; color: #475569;">
+            Example: 1 car model can contain engine, headlight, sealing strip, bolt, and many more parts in the same BOM.
+          </div>
+          <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+            Save BOM Items
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<datalist id="partsCatalog">
+  {% for part in parts %}
+  <option value="{{ part.part_id }} | {{ part.part_name }}">
+  {% endfor %}
+</datalist>
+<template id="bomRowTemplate">
+  <tr class="bom-row">
+    <td class="px-3 py-3">
+      <input
+        type="text"
+        class="form-control bg-light border-0 bom-part-search"
+        list="partsCatalog"
+        placeholder="Type part code or part name"
+        style="border-radius: 8px; font-size: 14px"
+      >
+      <input type="hidden" name="part_id" value="">
+    </td>
+    <td class="px-3 py-3 text-center">
+      <input type="number" step="1" min="1" class="form-control bg-light border-0 text-center" name="qty_per_unit" value="1" required style="border-radius: 8px; font-size: 14px">
+    </td>
+    <td class="px-3 py-3 text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-bom-row" style="border-radius: 8px;">
+        Remove
+      </button>
+    </td>
+  </tr>
+</template>
+<template id="editBomRowTemplate">
+  <tr class="bom-row">
+    <td class="px-3 py-3">
+      <input
+        type="text"
+        class="form-control bg-light border-0 bom-part-search"
+        list="partsCatalog"
+        placeholder="Type part code or part name"
+        style="border-radius: 8px; font-size: 14px"
+      >
+      <input type="hidden" name="part_id" value="">
+    </td>
+    <td class="px-3 py-3 text-center">
+      <input type="number" step="1" min="1" class="form-control bg-light border-0 text-center" name="qty_per_unit" value="1" required style="border-radius: 8px; font-size: 14px">
+    </td>
+    <td class="px-3 py-3 text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-bom-row" style="border-radius: 8px;">Remove</button>
+    </td>
+  </tr>
+</template>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const modelSearchInput = document.getElementById("bomModelSearch");
+    const sortFilter = document.getElementById("bomSortFilter");
+    const cardsContainer = document.getElementById("bomCardsContainer");
+    const modelCountLabel = document.getElementById("bomModelCount");
+
+    function normalizePartValue(value) {
+      const raw = (value || "").trim();
+      if (!raw) {
+        return "";
+      }
+      const separatorIndex = raw.indexOf("|");
+      if (separatorIndex >= 0) {
+        return raw.slice(0, separatorIndex).trim();
+      }
+      return raw.split(" ")[0].trim();
+    }
+
+    function bindRemoveButtons() {
+      document.querySelectorAll(".remove-bom-row").forEach((button) => {
+        button.onclick = function () {
+          const tbody = this.closest("tbody");
+          const rows = tbody.querySelectorAll(".bom-row");
+          if (rows.length === 1) {
+            const select = rows[0].querySelector('select[name="part_id"]');
+            const search = rows[0].querySelector(".bom-part-search");
+            const hidden = rows[0].querySelector('input[type="hidden"][name="part_id"]');
+            const qty = rows[0].querySelector('input[name="qty_per_unit"]');
+            if (select) select.value = "";
+            if (search) search.value = "";
+            if (hidden) hidden.value = "";
+            if (qty) qty.value = 1;
+            return;
+          }
+          this.closest(".bom-row").remove();
+        };
+      });
+    }
+
+    function bindPartSearchInputs(scope) {
+      scope.querySelectorAll(".bom-part-search").forEach((input) => {
+        input.onchange = function () {
+          const hidden = this.parentElement.querySelector('input[type="hidden"][name="part_id"]');
+          if (hidden) {
+            hidden.value = normalizePartValue(this.value);
+          }
+        };
+      });
+    }
+
+    document.querySelectorAll(".add-edit-bom-row").forEach((button) => {
+      button.addEventListener("click", function () {
+        const targetId = this.dataset.target;
+        const templateId = this.dataset.template;
+        const target = document.getElementById(targetId);
+        const template = document.getElementById(templateId);
+        if (!target || !template) {
+          return;
+        }
+        const clone = template.content.cloneNode(true);
+        target.appendChild(clone);
+        bindRemoveButtons();
+        bindPartSearchInputs(target);
+      });
+    });
+
+    function refreshModelCards() {
+      if (!cardsContainer) {
+        return;
+      }
+      const cards = Array.from(cardsContainer.querySelectorAll(".bom-model-card"));
+      const keyword = modelSearchInput ? modelSearchInput.value.trim().toLowerCase() : "";
+      const mode = sortFilter ? sortFilter.value : "all";
+
+      cards.forEach((card) => {
+        const matches = !keyword || card.dataset.model.includes(keyword);
+        card.style.display = matches ? "" : "none";
+      });
+
+      let visibleCards = cards.filter((card) => card.style.display !== "none");
+
+      if (mode === "recent") {
+        visibleCards.sort((a, b) => Number(b.dataset.updated) - Number(a.dataset.updated));
+      } else if (mode === "name") {
+        visibleCards.sort((a, b) => a.dataset.model.localeCompare(b.dataset.model));
+      } else if (mode === "parts_desc") {
+        visibleCards.sort((a, b) => Number(b.dataset.parts) - Number(a.dataset.parts));
+      }
+
+      visibleCards.forEach((card) => cardsContainer.appendChild(card));
+
+      if (modelCountLabel) {
+        modelCountLabel.textContent = `Showing ${visibleCards.length} model(s)`;
+      }
+    }
+
+    if (modelSearchInput) {
+      modelSearchInput.addEventListener("input", refreshModelCards);
+    }
+    if (sortFilter) {
+      sortFilter.addEventListener("change", refreshModelCards);
+    }
+
+    bindRemoveButtons();
+    bindPartSearchInputs(document);
+    refreshModelCards();
+  });
+</script>
+{% endblock %}

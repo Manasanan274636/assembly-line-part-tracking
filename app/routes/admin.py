@@ -78,25 +78,45 @@ def index():
     inventory_usage = []
     parts = Part.query.order_by(Part.stock_qty.asc()).limit(10).all()
 
-    for p in parts:
-        # Sum of consumption
-        actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(part_id=p.part_id).scalar() or 0
-        
-        # Calculate scrap for this part
-        scrap_qty = (
-            db.session.query(func.sum(Scrap.scrap_qty))
-            .join(Consumption)
-            .filter(Consumption.part_id == p.part_id)
-            .scalar() or 0
+    # --- OPTIMIZATION: Fix N+1 Query Problem ---
+    # แทนที่จะ Query ทุกๆ รอบในลูป เราใช้การดึงค่ารวมทั้งหมดในครั้งเดียว (Batch Query)
+    part_ids = [p.part_id for p in parts]
+    
+    if part_ids:
+        # 3.1: Get actual_used for all Top 10 parts in ONE query
+        used_query = (
+            db.session.query(Consumption.part_id, func.sum(Consumption.actual_qty))
+            .filter(Consumption.part_id.in_(part_ids))
+            .group_by(Consumption.part_id)
+            .all()
         )
+        used_dict = {row.part_id: int(row[1]) for row in used_query if row[1]}
 
-        # Planned from BOM
-        required_qty = (
-            db.session.query(func.sum(BOM.qty_per_unit))
-            .join(Part)
-            .filter(Part.part_id == p.part_id)
-            .scalar() or 0
+        # 3.2: Get scrap_qty in ONE query
+        scrap_query = (
+            db.session.query(Consumption.part_id, func.sum(Scrap.scrap_qty))
+            .join(Scrap, Scrap.consumption_id == Consumption.consumption_id)
+            .filter(Consumption.part_id.in_(part_ids))
+            .group_by(Consumption.part_id)
+            .all()
         )
+        scrap_dict = {row.part_id: int(row[1]) for row in scrap_query if row[1]}
+
+        # 3.3: Get required_qty from BOM in ONE query
+        bom_query = (
+            db.session.query(BOM.part_id, func.sum(BOM.qty_per_unit))
+            .filter(BOM.part_id.in_(part_ids))
+            .group_by(BOM.part_id)
+            .all()
+        )
+        bom_dict = {row.part_id: int(row[1]) for row in bom_query if row[1]}
+    else:
+        used_dict, scrap_dict, bom_dict = {}, {}, {}
+
+    for p in parts:
+        actual_used = used_dict.get(p.part_id, 0)
+        scrap_qty = scrap_dict.get(p.part_id, 0)
+        required_qty = bom_dict.get(p.part_id, 0)
 
         status = "OK"
         if p.stock_qty == 0:
@@ -143,6 +163,803 @@ def index():
     )
 
 
+@bp.route("/users")
+@login_required
+@role_required("admin")
+def users():
+    from app.models.user import User
+    users_list = User.query.all()
+    return render_template("admin/users.html", users=users_list)
+
+
+@bp.route("/users/add", methods=["POST"])
+@login_required
+@role_required("admin")
+def add_user():
+    from app.models.user import User
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    username = request.form.get("username")
+    email = request.form.get("email")
+    role = request.form.get("role")
+    password = request.form.get("password")
+    
+    if User.query.filter_by(username=username).first():
+        flash("Username already exists.", "danger")
+        return redirect(url_for("admin.users"))
+        
+    new_user = User(username=username, email=email, role=role)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    
+    # Log activity
+    log = ActivityLog(
+        activity_type="User Management",
+        reference_id="System",
+        message=f"Admin created new user: {username} ({role})",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"User {username} added successfully!", "success")
+    return redirect(url_for("admin.users"))
+
+
+@bp.route("/users/toggle/<int:user_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def toggle_user(user_id):
+    from app.models.user import User
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    user = User.query.get_or_404(user_id)
+    current_uid = current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    if user.user_id == current_uid:
+        flash("You cannot deactivate yourself.", "warning")
+        return redirect(url_for("admin.users"))
+        
+    user.is_active_flag = 0 if user.is_active_flag == 1 else 1
+    
+    action = "Activated" if user.is_active_flag == 1 else "Deactivated"
+    log = ActivityLog(
+        activity_type="User Management",
+        reference_id="System",
+        message=f"Admin {action.lower()} user: {user.username}",
+        created_by=current_uid
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"User {user.username} {action.lower()} successfully.", "success")
+    return redirect(url_for("admin.users"))
+
+
+@bp.route("/users/edit/<int:user_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def edit_user(user_id):
+    from app.models.user import User
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    user = User.query.get_or_404(user_id)
+    
+    username = request.form.get("username")
+    email = request.form.get("email")
+    role = request.form.get("role")
+    password = request.form.get("password")
+    
+    # Check if new username already exists for a DIFFERENT user
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user and existing_user.user_id != user_id:
+        flash("Username already exists.", "danger")
+        return redirect(url_for("admin.users"))
+        
+    user.username = username
+    user.email = email
+    user.role = role
+    
+    if password:  # If password is provided, update it
+        user.set_password(password)
+        
+    log = ActivityLog(
+        activity_type="User Management",
+        reference_id="System",
+        message=f"Admin updated user: {username}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"User {username} updated successfully!", "success")
+    return redirect(url_for("admin.users"))
+
+
+# --- MASTER DATA: PARTS ---
+
+@bp.route("/parts")
+@login_required
+@role_required("admin")
+def parts():
+    from app.models.part import Part
+    parts_list = Part.query.order_by(Part.part_name.asc()).all()
+    return render_template("admin/parts.html", parts=parts_list)
+
+
+@bp.route("/parts/add", methods=["POST"])
+@login_required
+@role_required("admin")
+def add_part():
+    from app.models.part import Part
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    sku = request.form.get("sku")
+    name = request.form.get("name")
+    unit = request.form.get("unit", "pcs")
+    min_stock = int(request.form.get("min_stock", 0))
+    stock_qty = int(request.form.get("stock_qty", 0))
+    
+    if Part.query.filter_by(part_id=sku).first():
+        flash(f"SKU {sku} already exists.", "danger")
+        return redirect(url_for("admin.parts"))
+        
+    new_part = Part(
+        part_id=sku,
+        part_name=name,
+        unit=unit,
+        min_level=min_stock,
+        stock_qty=stock_qty,
+        is_active=1
+    )
+    db.session.add(new_part)
+    
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=sku,
+        message=f"Admin added new part: {name} ({sku})",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Part {name} added successfully!", "success")
+    return redirect(url_for("admin.parts"))
+
+
+@bp.route("/parts/edit/<part_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def edit_part(part_id):
+    from app.models.part import Part
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    part = Part.query.get_or_404(part_id)
+    
+    part.part_name = request.form.get("name")
+    part.unit = request.form.get("unit")
+    part.min_level = int(request.form.get("min_stock", 0))
+    
+    # We do not allow changing SKU directly as it's the Primary Key in this schema.
+    
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=part.part_id,
+        message=f"Admin updated part info: {part.part_name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Part {part.part_name} updated successfully!", "success")
+    return redirect(url_for("admin.parts"))
+
+
+@bp.route("/parts/toggle/<part_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def toggle_part(part_id):
+    from app.models.part import Part
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    part = Part.query.get_or_404(part_id)
+    part.is_active = 0 if part.is_active == 1 else 1
+    
+    action = "Activated" if part.is_active == 1 else "Deactivated"
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=part.part_id,
+        message=f"Admin {action.lower()} part: {part.part_name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Part {part.part_name} {action.lower()} successfully.", "success")
+    return redirect(url_for("admin.parts"))
+
+
+@bp.route("/parts/upload", methods=["POST"])
+@login_required
+@role_required("admin")
+def upload_parts_master():
+    if "excel_file" not in request.files:
+        flash("No file picked", "danger")
+        return redirect(url_for("admin.parts"))
+
+    file = request.files["excel_file"]
+    if file.filename == "":
+        flash("No selected file", "danger")
+        return redirect(url_for("admin.parts"))
+
+    try:
+        import pandas as pd
+        from app.models.part import Part
+        from app.utils.db import db
+        from app.models.activity_log import ActivityLog
+        from flask_login import current_user
+
+        df = pd.read_excel(file)
+        success_count = 0
+        update_count = 0
+        
+        for _, row in df.iterrows():
+            sku = str(row["SKU"]).strip()
+            name = str(row.get("Part Name", ""))
+            if not sku or not name or sku == "nan" or name == "nan":
+                continue
+                
+            unit = str(row.get("Unit", "pcs")).strip()
+            min_stock = int(row.get("Min Stock", 0))
+            
+            existing = Part.query.filter_by(part_id=sku).first()
+            if existing:
+                existing.part_name = name
+                existing.unit = unit
+                existing.min_level = min_stock
+                update_count += 1
+            else:
+                initial_stock = int(row.get("Initial Stock", 0))
+                new_part = Part(
+                    part_id=sku,
+                    part_name=name,
+                    unit=unit,
+                    min_level=min_stock,
+                    stock_qty=initial_stock,
+                    is_active=1
+                )
+                db.session.add(new_part)
+                success_count += 1
+
+        log = ActivityLog(
+            activity_type="Master Data Import",
+            reference_id="Batch_Part",
+            message=f"Admin uploaded Part Master data ({success_count} added, {update_count} updated)",
+            created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        flash(f"Successfully added {success_count} new parts and updated {update_count} existing parts.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error processing Excel: {str(e)}", "danger")
+
+    return redirect(url_for("admin.parts"))
+
+
+@bp.route("/parts/template")
+@login_required
+@role_required("admin")
+def download_parts_template():
+    output = io.BytesIO()
+    df = pd.DataFrame(
+        [
+            {
+                "SKU": "P-1001",
+                "Part Name": "Bracket Assembly",
+                "Unit": "pcs",
+                "Min Stock": 50,
+                "Initial Stock": 200,
+            },
+            {
+                "SKU": "P-1002",
+                "Part Name": "Bolt M8",
+                "Unit": "pcs",
+                "Min Stock": 100,
+                "Initial Stock": 1000,
+            },
+        ]
+    )
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Part Master Template")
+
+    output.seek(0)
+    return send_file(
+        output,
+        download_name="part_master_template.xlsx",
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# --- MASTER DATA: STATIONS ---
+
+@bp.route("/stations")
+@login_required
+@role_required("admin")
+def stations():
+    from app.models.station import Station
+    stations_list = Station.query.order_by(Station.station_id.asc()).all()
+    return render_template("admin/stations.html", stations=stations_list)
+
+
+@bp.route("/stations/add", methods=["POST"])
+@login_required
+@role_required("admin")
+def add_station():
+    from app.models.station import Station
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    name = request.form.get("name")
+    description = request.form.get("description", "")
+    
+    existing = Station.query.filter_by(station_name=name).first()
+    if existing:
+        flash(f"Station name '{name}' already exists.", "danger")
+        return redirect(url_for("admin.stations"))
+        
+    new_station = Station(
+        station_name=name,
+        description=description,
+        is_active=1
+    )
+    db.session.add(new_station)
+    
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id="Station",
+        message=f"Admin added new station: {name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Station {name} added successfully!", "success")
+    return redirect(url_for("admin.stations"))
+
+
+@bp.route("/stations/edit/<int:station_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def edit_station(station_id):
+    from app.models.station import Station
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    station = Station.query.get_or_404(station_id)
+    
+    name = request.form.get("name")
+    existing_name = Station.query.filter_by(station_name=name).first()
+    if existing_name and existing_name.station_id != station_id:
+        flash(f"Station name '{name}' already exists.", "danger")
+        return redirect(url_for("admin.stations"))
+    
+    station.station_name = name
+    station.description = request.form.get("description", "")
+    
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=f"Station_{station.station_id}",
+        message=f"Admin updated station info: {station.station_name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Station {station.station_name} updated successfully!", "success")
+    return redirect(url_for("admin.stations"))
+
+
+@bp.route("/stations/toggle/<int:station_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def toggle_station(station_id):
+    from app.models.station import Station
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    station = Station.query.get_or_404(station_id)
+    station.is_active = 0 if station.is_active == 1 else 1
+    
+    action = "Activated" if station.is_active == 1 else "Deactivated"
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=f"Station_{station.station_id}",
+        message=f"Admin {action.lower()} station: {station.station_name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    
+    db.session.commit()
+    flash(f"Station {station.station_name} {action.lower()} successfully.", "success")
+    return redirect(url_for("admin.stations"))
+
+
+# --- MASTER DATA: BOM (BILL OF MATERIALS) ---
+
+@bp.route("/bom")
+@login_required
+@role_required("admin")
+def bom():
+    from app.models.bom import BOM
+    from app.models.part import Part
+    from app.models.activity_log import ActivityLog
+    
+    # Query all parts for the select dropdown
+    parts = Part.query.filter_by(is_active=1).order_by(Part.part_name).all()
+    
+    # Get all BOM entries
+    bom_entries = BOM.query.order_by(BOM.model, BOM.part_id).all()
+    
+    # Group BOM entries by model for display
+    bom_grouped = {}
+    for b in bom_entries:
+        if b.model not in bom_grouped:
+            bom_grouped[b.model] = []
+        bom_grouped[b.model].append(b)
+
+    bom_meta = {}
+    for model_name, entries in bom_grouped.items():
+        ref_id = f"BOM_{model_name}"
+        created_log = (
+            ActivityLog.query.filter_by(reference_id=ref_id)
+            .order_by(ActivityLog.created_at.asc())
+            .first()
+        )
+        updated_log = (
+            ActivityLog.query.filter_by(reference_id=ref_id)
+            .order_by(ActivityLog.created_at.desc())
+            .first()
+        )
+        bom_meta[model_name] = {
+            "parts_count": len(entries),
+            "created_at": created_log.created_at if created_log else None,
+            "updated_at": updated_log.created_at if updated_log else None,
+        }
+        
+    return render_template(
+        "admin/bom.html",
+        bom_grouped=bom_grouped,
+        bom_meta=bom_meta,
+        parts=parts,
+    )
+
+
+@bp.route("/bom/add", methods=["POST"])
+@login_required
+@role_required("admin")
+def add_bom_entry():
+    from app.models.bom import BOM
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    model_name = (request.form.get("model") or "").strip()
+    part_ids = request.form.getlist("part_id")
+    qty_values = request.form.getlist("qty_per_unit")
+
+    if not model_name:
+        flash("Product model is required.", "danger")
+        return redirect(url_for("admin.bom"))
+
+    rows = []
+    for index, raw_part_id in enumerate(part_ids):
+        part_id = (raw_part_id or "").strip()
+        raw_qty = qty_values[index] if index < len(qty_values) else "0"
+
+        if not part_id:
+            continue
+
+        try:
+            qty = int(raw_qty)
+        except (TypeError, ValueError):
+            flash(f"Invalid quantity for part {part_id}.", "danger")
+            return redirect(url_for("admin.bom"))
+
+        if qty <= 0:
+            flash(f"Quantity for part {part_id} must be greater than zero.", "danger")
+            return redirect(url_for("admin.bom"))
+
+        rows.append((part_id, qty))
+
+    if not rows:
+        flash("Please add at least one BOM item.", "danger")
+        return redirect(url_for("admin.bom"))
+
+    unique_part_ids = set()
+    for part_id, _qty in rows:
+        if part_id in unique_part_ids:
+            flash(f"Part {part_id} is duplicated in the form.", "warning")
+            return redirect(url_for("admin.bom"))
+        unique_part_ids.add(part_id)
+
+    existing_model_bom = BOM.query.filter_by(model=model_name).first()
+    if existing_model_bom:
+        bom_id = existing_model_bom.bom_id
+    else:
+        max_id_bom = BOM.query.order_by(BOM.bom_id.desc()).first()
+        bom_id = (max_id_bom.bom_id + 1) if max_id_bom else 1
+
+    added_count = 0
+    skipped_parts = []
+
+    for part_id, qty in rows:
+        existing_entry = BOM.query.filter_by(model=model_name, part_id=part_id).first()
+        if existing_entry:
+            skipped_parts.append(part_id)
+            continue
+
+        db.session.add(
+            BOM(bom_id=bom_id, model=model_name, part_id=part_id, qty_per_unit=qty)
+        )
+        added_count += 1
+
+    if added_count == 0:
+        flash(
+            f"No new BOM items were added. Existing parts in {model_name}: {', '.join(skipped_parts)}",
+            "warning",
+        )
+        return redirect(url_for("admin.bom"))
+
+    log_message = f"Admin added {added_count} part(s) to BOM {model_name}"
+    if skipped_parts:
+        log_message += f" (skipped existing: {', '.join(skipped_parts)})"
+
+    db.session.add(
+        ActivityLog(
+            activity_type="Master Data",
+            reference_id=f"BOM_{model_name}",
+            message=log_message,
+            created_by=current_user.user_id
+        )
+    )
+    db.session.commit()
+
+    if skipped_parts:
+        flash(
+            f"Added {added_count} BOM item(s). Skipped existing part(s): {', '.join(skipped_parts)}",
+            "warning",
+        )
+    else:
+        flash(f"Successfully added {added_count} BOM item(s) to {model_name}.", "success")
+    return redirect(url_for("admin.bom"))
+
+
+@bp.route("/bom/edit/<model_name>/<part_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def edit_bom_entry(model_name, part_id):
+    from app.models.bom import BOM
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+
+    entry = BOM.query.filter_by(model=model_name, part_id=part_id).first_or_404()
+    qty = int(request.form.get("qty_per_unit", 1))
+
+    if qty <= 0:
+        flash("Quantity per unit must be greater than zero.", "danger")
+        return redirect(url_for("admin.bom"))
+
+    entry.qty_per_unit = qty
+    db.session.add(
+        ActivityLog(
+            activity_type="Master Data",
+            reference_id=f"BOM_{model_name}",
+            message=f"Admin updated BOM quantity for {part_id} in {model_name} to {qty}",
+            created_by=current_user.user_id,
+        )
+    )
+    db.session.commit()
+
+    flash(f"Updated {part_id} quantity in {model_name} BOM.", "success")
+    return redirect(url_for("admin.bom"))
+
+
+@bp.route("/bom/model/<model_name>/edit", methods=["POST"])
+@login_required
+@role_required("admin")
+def edit_bom_model(model_name):
+    from app.models.bom import BOM
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+
+    part_ids = request.form.getlist("part_id")
+    qty_values = request.form.getlist("qty_per_unit")
+
+    rows = []
+    for index, raw_part_id in enumerate(part_ids):
+        part_id = (raw_part_id or "").strip()
+        raw_qty = qty_values[index] if index < len(qty_values) else "0"
+
+        if not part_id:
+            continue
+
+        try:
+            qty = int(raw_qty)
+        except (TypeError, ValueError):
+            flash(f"Invalid quantity for part {part_id}.", "danger")
+            return redirect(url_for("admin.bom"))
+
+        if qty <= 0:
+            flash(f"Quantity for part {part_id} must be greater than zero.", "danger")
+            return redirect(url_for("admin.bom"))
+
+        rows.append((part_id, qty))
+
+    if not rows:
+        flash("A BOM model must contain at least one part.", "danger")
+        return redirect(url_for("admin.bom"))
+
+    unique_part_ids = set()
+    for part_id, _qty in rows:
+        if part_id in unique_part_ids:
+            flash(f"Part {part_id} is duplicated in the form.", "warning")
+            return redirect(url_for("admin.bom"))
+        unique_part_ids.add(part_id)
+
+    existing_entries = BOM.query.filter_by(model=model_name).all()
+    if not existing_entries:
+        flash(f"BOM model {model_name} was not found.", "danger")
+        return redirect(url_for("admin.bom"))
+
+    bom_id = existing_entries[0].bom_id
+    existing_map = {entry.part_id: entry for entry in existing_entries}
+    incoming_map = {part_id: qty for part_id, qty in rows}
+
+    updated_count = 0
+    added_count = 0
+    removed_count = 0
+
+    for part_id, entry in existing_map.items():
+        if part_id not in incoming_map:
+            db.session.delete(entry)
+            removed_count += 1
+            continue
+
+        new_qty = incoming_map[part_id]
+        if entry.qty_per_unit != new_qty:
+            entry.qty_per_unit = new_qty
+            updated_count += 1
+
+    for part_id, qty in incoming_map.items():
+        if part_id in existing_map:
+            continue
+        db.session.add(BOM(bom_id=bom_id, model=model_name, part_id=part_id, qty_per_unit=qty))
+        added_count += 1
+
+    db.session.add(
+        ActivityLog(
+            activity_type="Master Data",
+            reference_id=f"BOM_{model_name}",
+            message=(
+                f"Admin edited BOM {model_name} "
+                f"(added: {added_count}, updated: {updated_count}, removed: {removed_count})"
+            ),
+            created_by=current_user.user_id,
+        )
+    )
+    db.session.commit()
+
+    flash(
+        f"BOM {model_name} updated successfully. Added {added_count}, updated {updated_count}, removed {removed_count}.",
+        "success",
+    )
+    return redirect(url_for("admin.bom"))
+
+
+@bp.route("/bom/delete/<model_name>/<part_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def delete_bom_entry(model_name, part_id):
+    from app.models.bom import BOM
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    
+    entry = BOM.query.filter_by(model=model_name, part_id=part_id).first_or_404()
+    
+    db.session.delete(entry)
+    
+    log = ActivityLog(
+        activity_type="Master Data",
+        reference_id=f"BOM_{model_name}",
+        message=f"Admin removed part {part_id} from BOM {model_name}",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    db.session.commit()
+    
+    flash(f"Removed {part_id} from {model_name} BOM.", "success")
+    return redirect(url_for("admin.bom"))
+
+
+# --- PRODUCTION PLAN CREATION ---
+
+@bp.route("/production/add", methods=["POST"])
+@login_required
+@role_required("admin")
+def add_production():
+    from app.models.production_plan import ProductionPlan
+    from app.utils.db import db
+    from app.models.activity_log import ActivityLog
+    from flask_login import current_user
+    import datetime
+    
+    order_id = request.form.get("order_id")
+    product_name = request.form.get("product_name")
+    qty = int(request.form.get("quantity", 0))
+    start_date_str = request.form.get("start_date")
+    end_date_str = request.form.get("end_date") or start_date_str
+    
+    if ProductionPlan.query.filter_by(order_id=order_id).first():
+        flash(f"Order ID {order_id} already exists.", "danger")
+        # Ensure 'admin.production' route exists. Fallback if it is named differently:
+        try:
+            return redirect(url_for("admin.production"))
+        except Exception:
+            return redirect(url_for("admin.dashboard"))
+        
+    start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+    if end_date < start_date:
+        flash("End date must be the same as or later than start date.", "danger")
+        return redirect(url_for("admin.production"))
+
+    plan = ProductionPlan(
+        order_id=order_id,
+        product_name=product_name,
+        quantity_planned=qty,
+        start_date=start_date,
+        end_date=end_date,
+        status="In Progress",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(plan)
+    
+    log = ActivityLog(
+        activity_type="Production",
+        reference_id=order_id,
+        message=f"Admin created production plan for {product_name} (Qty: {qty})",
+        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    )
+    db.session.add(log)
+    db.session.commit()
+    
+    flash("Production plan created successfully.", "success")
+    try:
+        return redirect(url_for("admin.production"))
+    except Exception:
+        return redirect(url_for("admin.dashboard"))
+
+
 @bp.route("/data-entry")
 @login_required
 @role_required("admin")
@@ -181,7 +998,8 @@ def submit_data():
         part_id=part_id,
         station_id=station_id,
         actual_qty=quantity_used,
-        recorded_by=current_user.id
+        planned_qty=quantity_used,
+        recorded_by=current_user.user_id
     )
 
     # Update part stock
@@ -195,7 +1013,7 @@ def submit_data():
     if scrap_qty > 0:
         from app.models.scrap import Scrap
         new_scrap = Scrap(
-            consumption_id=new_consumption.id,
+            consumption_id=new_consumption.consumption_id,
             scrap_qty=scrap_qty,
             reason="Manual Entry"
         )
@@ -206,7 +1024,7 @@ def submit_data():
         activity_type="Data Entry",
         reference_id=plan.order_id,
         message=f"Admin recorded {quantity_used} units for {part.part_id}",
-        created_by=current_user.id
+        created_by=current_user.user_id
     )
     db.session.add(log)
     
@@ -242,7 +1060,7 @@ def upload_excel():
         success_count = 0
         for _, row in df.iterrows():
             station = Station.query.filter_by(
-                name=str(row["StationName"]).strip()
+                station_name=str(row["StationName"]).strip()
             ).first()
             part = Part.query.filter_by(part_id=str(row["PartSKU"]).strip()).first()
 
@@ -257,18 +1075,19 @@ def upload_excel():
                     scrap_qty = int(row.get("ScrapQty", 0))
 
                     cons = Consumption(
-                        station_id=station.id,
-                        part_id=part.id,
+                        station_id=station.station_id,
+                        part_id=part.part_id,
                         order_id=plan.order_id,
+                        planned_qty=qty,
                         actual_qty=qty,
-                        recorded_by=current_user.id
+                        recorded_by=current_user.user_id
                     )
                     db.session.add(cons)
                     db.session.flush()
 
                     if scrap_qty > 0:
                         new_scrap = Scrap(
-                            consumption_id=cons.id,
+                            consumption_id=cons.consumption_id,
                             scrap_qty=scrap_qty,
                             reason="Excel Upload"
                         )
@@ -281,7 +1100,7 @@ def upload_excel():
             log = ActivityLog(
                 activity_type="Excel Import",
                 message=f"Imported {success_count} records via Excel",
-                created_by=current_user.id
+                created_by=current_user.user_id
             )
             db.session.add(log)
             db.session.commit()
@@ -327,14 +1146,25 @@ def production():
     from app.models.consumption import Consumption
     from sqlalchemy import func
 
-    # Find the active 'In Progress' plan
-    plan = ProductionPlan.query.filter_by(status="In Progress").first()
+    selected_order_id = request.args.get("order_id")
+    plans = ProductionPlan.query.order_by(
+        ProductionPlan.start_date.desc(), ProductionPlan.order_id.desc()
+    ).all()
+
+    plan = None
+    if selected_order_id:
+        plan = ProductionPlan.query.get(selected_order_id)
     if not plan:
-        plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
+        plan = ProductionPlan.query.filter_by(status="In Progress").order_by(
+            ProductionPlan.start_date.desc()
+        ).first()
+    if not plan and plans:
+        plan = plans[0]
 
     bom_items = []
     total_part_types = 0
     total_items_required = 0
+    total_items_used = 0
 
     if plan:
         # Get BOM for this plan's product model
@@ -351,6 +1181,7 @@ def production():
             actual_used = db.session.query(func.sum(Consumption.actual_qty)).filter_by(
                 order_id=plan.order_id, part_id=b.part_id
             ).scalar() or 0
+            total_items_used += int(actual_used)
 
             bom_items.append({
                 "part_code": part.part_id,
@@ -359,18 +1190,25 @@ def production():
                 "unit": part.unit or "pcs",
                 "calculated_required": calculated_required,
                 "actual_used": actual_used,
+                "remaining_required": max(calculated_required - actual_used, 0),
                 "percentage": round((actual_used / calculated_required * 100), 1) if calculated_required > 0 else 0
             })
 
-    shift_info = "Day Shift (06:00 - 18:00)"
+    shift_info = (
+        f"{plan.start_date} to {plan.end_date}"
+        if plan and plan.start_date and plan.end_date and plan.start_date != plan.end_date
+        else (str(plan.start_date) if plan and plan.start_date else "No active period")
+    )
     product_name = plan.product_name if plan else "N/A"
 
     return render_template(
         "admin/production.html",
+        plans=plans,
         plan=plan,
         bom_items=bom_items,
         total_part_types=total_part_types,
         total_items_required=total_items_required,
+        total_items_used=total_items_used,
         shift_info=shift_info,
         product_name=product_name,
     )

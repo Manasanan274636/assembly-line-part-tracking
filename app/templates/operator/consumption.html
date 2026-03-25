@@ -31,6 +31,8 @@
             </form>
             {% if not order_id %}
             <span class="badge bg-warning text-dark" style="font-size: 10px;">No production plan selected</span>
+            {% elif selected_plan %}
+            <span class="badge bg-light text-dark border" style="font-size: 10px;">Period: {{ selected_plan.start_date }}{% if selected_plan.end_date and selected_plan.end_date != selected_plan.start_date %} - {{ selected_plan.end_date }}{% endif %}</span>
             {% endif %}
         </div>
     </div>
@@ -73,19 +75,28 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small" style="font-size: 10px;">Station</label>
+                    <select name="station_id" class="form-select border-light shadow-none bg-white" required style="font-size: 12px;">
+                        <option value="">Select Station</option>
+                        {% for station in stations %}
+                        <option value="{{ station.station_id }}">{{ station.station_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small" style="font-size: 10px;">Description</label>
                     <input type="text" class="form-control border-light bg-light" placeholder="Part description" readonly style="font-size: 12px;">
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <label class="form-label text-muted small" style="font-size: 10px;">Planned Qty</label>
                     <input type="number" name="planned_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <label class="form-label text-muted small" style="font-size: 10px;">Actual Qty</label>
                     <input type="number" name="actual_qty" class="form-control border-light shadow-none" value="0" min="0" required style="font-size: 12px;">
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <label class="form-label text-muted small" style="font-size: 10px;">Scrap Qty</label>
                     <input type="number" name="scrap_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
                 </div>

@@ -5,18 +5,42 @@
 "base_admin.html" %} {% block title %}Production Plan{% endblock %} {% block
 content %}
 <div class="py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1" style="font-size: 20px; font-weight: 600; color: #1e293b">Production Planning</h4>
+      <p class="mb-0 text-muted" style="font-size: 14px">Create plans by production period and calculate part demand from BOM.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <form method="GET" action="{{ url_for('admin.production') }}" style="min-width: 280px;">
+        <select name="order_id" class="form-select" onchange="this.form.submit()">
+          <option value="">Select plan to view demand</option>
+          {% for listed_plan in plans %}
+          <option value="{{ listed_plan.order_id }}" {% if plan and listed_plan.order_id == plan.order_id %}selected{% endif %}>
+            {{ listed_plan.order_id }} | {{ listed_plan.product_name }} | {{ listed_plan.start_date }}{% if listed_plan.end_date and listed_plan.end_date != listed_plan.start_date %} - {{ listed_plan.end_date }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      <button class="btn btn-sm d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addPlanModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; border: none;">
+        Create New Plan
+      </button>
+    </div>
+  </div>
+
+  {% if plan %}
   <!-- Production Plan Overview Card -->
   <div
     class="card border-0 shadow-sm mb-4"
     style="border-radius: 0 0 12px 12px; overflow: hidden"
   >
     <div
-      class="card-header border-0 py-4 px-4"
+      class="card-header border-0 py-4 px-4 d-flex justify-content-between align-items-center"
       style="background-color: #0f172a; color: white"
     >
       <h4 class="mb-1" style="font-size: 18px; font-weight: 500">
         Production Plan Overview
       </h4>
+      <span class="badge bg-primary-subtle text-primary px-3 py-2">{{ plan.order_id }}</span>
     </div>
     <div class="card-body p-4">
       <div class="row text-center text-md-start">
@@ -39,7 +63,7 @@ content %}
             </div>
             <div>
               <div class="text-secondary small fw-medium">Production Date</div>
-              <div class="fw-bold fs-6">{{ plan.start_date }}</div>
+              <div class="fw-bold fs-6">{{ shift_info }}</div>
             </div>
           </div>
         </div>
@@ -59,8 +83,8 @@ content %}
               </svg>
             </div>
             <div>
-              <div class="text-secondary small fw-medium">Shift</div>
-              <div class="fw-bold fs-6">{{ shift_info }}</div>
+              <div class="text-secondary small fw-medium">Status</div>
+              <div class="fw-bold fs-6">{{ plan.status }}</div>
             </div>
           </div>
         </div>
@@ -175,6 +199,18 @@ content %}
               >
                 Calculated Required
               </th>
+              <th
+                class="text-end pe-4 py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Actual Used
+              </th>
+              <th
+                class="text-end pe-4 py-3 border-0 text-secondary"
+                style="font-size: 12px; font-weight: 500; text-transform: none"
+              >
+                Remaining Required
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -219,6 +255,12 @@ content %}
                 "
               >
                 {{ item.calculated_required }}
+              </td>
+              <td class="text-end pe-4 py-3 align-middle fw-semibold" style="font-size: 13px; color: #0f172a; border: 0;">
+                {{ item.actual_used }}
+              </td>
+              <td class="text-end pe-4 py-3 align-middle fw-semibold" style="font-size: 13px; color: {% if item.remaining_required > 0 %}#dc2626{% else %}#16a34a{% endif %}; border: 0;">
+                {{ item.remaining_required }}
               </td>
             </tr>
             {% endfor %}
@@ -328,16 +370,64 @@ content %}
               class="small fw-medium mb-1"
               style="color: #64748b; font-size: 13px"
             >
-              Production Target
+              Total Items Used
             </div>
             <div
               class="fw-bold"
               style="color: #9333ea; font-size: 28px; letter-spacing: -0.02em"
             >
-              {{ plan.quantity_planned }} units
+              {{ total_items_used }} used
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="card-body text-center py-5">
+      <h5 class="fw-medium text-secondary">No production plan found</h5>
+      <p class="text-muted mb-0">Create a plan below to start calculating part demand from your BOM.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add Production Plan Modal -->
+<div class="modal fade" id="addPlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-semibold" style="color: #0f172a;">Create Production Plan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form action="{{ url_for('admin.add_production') }}" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Plan ID / Order Number *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="order_id" placeholder="e.g. PLN-20231101-A" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Product Model *</label>
+            <!-- In a real app we would loop BOM models here, but a free text/datalist is fine for prototype -->
+            <input type="text" class="form-control bg-light border-0 p-3" name="product_name" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Target Build Quantity *</label>
+            <input type="number" class="form-control bg-light border-0 p-3" name="quantity" min="1" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Target Production Date *</label>
+            <input type="date" class="form-control bg-light border-0 p-3" name="start_date" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">End Date / End of Period *</label>
+            <input type="date" class="form-control bg-light border-0 p-3" name="end_date" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+            Deploy Production Plan
+          </button>
+        </form>
       </div>
     </div>
   </div>

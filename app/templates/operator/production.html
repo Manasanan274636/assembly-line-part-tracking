@@ -217,6 +217,10 @@
             </div>
           </td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center py-5 text-muted">No production plans available.</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -336,74 +340,50 @@
         bomSection.classList.remove("d-none");
         bomSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
-        // Static data matching the mockup
-        const staticBomData = [
-          {
-            id: "A-3421",
-            desc: "Main Shaft",
-            req: 2,
-            unit: "pcs",
-            stock: 450,
-            status: "Adequate",
-          },
-          {
-            id: "B-1234",
-            desc: "Bearing Set",
-            req: 4,
-            unit: "pcs",
-            stock: 180,
-            status: "Adequate",
-          },
-          {
-            id: "C-5678",
-            desc: "Gasket Kit",
-            req: 1,
-            unit: "set",
-            stock: 120,
-            status: "Adequate",
-          },
-          {
-            id: "D-9012",
-            desc: "Oil Seal",
-            req: 6,
-            unit: "pcs",
-            stock: 1500,
-            status: "Adequate",
-          },
-          {
-            id: "E-3456",
-            desc: "Bolt Set M12",
-            req: 8,
-            unit: "pcs",
-            stock: 2400,
-            status: "Adequate",
-          },
-        ];
-
         bomTableBody.innerHTML = "";
+        fetch(`/operator/api/bom/${orderId}`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data.bom || data.bom.length === 0) {
+              bomTableBody.innerHTML = `
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">No BOM found for this production plan.</td>
+                </tr>
+              `;
+              return;
+            }
 
-        staticBomData.forEach((item) => {
-          const bgClass = "bg-success";
-          const statusClass = "text-success";
-          const icon =
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-
-          const row = `
-              <tr class="align-middle" style="border-bottom: 1px solid #f8fafc;">
+            data.bom.forEach((item) => {
+              const statusMap = {
+                Adequate: { bg: "bg-success", text: "text-success" },
+                Low: { bg: "bg-warning", text: "text-warning" },
+                Critical: { bg: "bg-danger", text: "text-danger" },
+              };
+              const statusStyle = statusMap[item.status] || statusMap.Adequate;
+              const row = `
+                <tr class="align-middle" style="border-bottom: 1px solid #f8fafc;">
                   <td class="ps-4 text-dark fw-medium py-3">${item.id}</td>
                   <td class="text-muted fw-medium py-3">${item.desc}</td>
                   <td class="text-dark fw-medium py-3">${item.req}</td>
                   <td class="text-muted fw-medium py-3">${item.unit}</td>
                   <td class="text-dark fw-medium py-3">${item.stock}</td>
                   <td class="py-3">
-                      <span class="badge ${bgClass} bg-opacity-10 ${statusClass} d-inline-flex align-items-center justify-content-center" style="font-size: 10px; padding: 6px 10px; border-radius: 4px;">
-                          ${icon}${item.status}
-                      </span>
+                    <span class="badge ${statusStyle.bg} bg-opacity-10 ${statusStyle.text}" style="font-size: 10px; padding: 6px 10px; border-radius: 4px;">
+                      ${item.status}
+                    </span>
                   </td>
+                </tr>
+              `;
+              bomTableBody.innerHTML += row;
+            });
+          })
+          .catch(() => {
+            bomTableBody.innerHTML = `
+              <tr>
+                <td colspan="6" class="text-center py-4 text-danger">Failed to load BOM data.</td>
               </tr>
-          `;
-          bomTableBody.innerHTML += row;
-        });
+            `;
+          });
       });
     });
 

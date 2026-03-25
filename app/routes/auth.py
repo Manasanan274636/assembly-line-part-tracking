@@ -33,7 +33,7 @@ def login():
         ).first()
         print(f"DEBUG: User found: {user}")
 
-        if user and user.check_password(password):
+        if user and user.check_password(password) and user.is_active_flag == 1:
             print("DEBUG: Password check passed")
             login_user(user)
 
@@ -47,7 +47,10 @@ def login():
 
         print("DEBUG: Login failed - Invalid credentials")
         # If login fails
-        return render_template("auth/login.html", error="Invalid username or password")
+        error_message = "Invalid username or password"
+        if user and user.check_password(password) and user.is_active_flag != 1:
+            error_message = "This account has been disabled"
+        return render_template("auth/login.html", error=error_message)
 
     return render_template("auth/login.html")
 

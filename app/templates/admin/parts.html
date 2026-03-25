@@ -1,0 +1,226 @@
+{% extends "base_admin.html" %} 
+{% block title %}Part Management{% endblock %} 
+
+{% block content %}
+<div class="py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1" style="font-size: 20px; font-weight: 600; color: #1e293b">Part Master Data</h4>
+      <p class="mb-0 text-muted" style="font-size: 14px">Manage system registry of physical assembly parts.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <!-- Upload Excel Button -->
+      <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#uploadPartModal" style="border-radius: 8px; font-size: 14px; font-weight: 500;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Upload Master Data
+      </button>
+      
+      <!-- Add Single Button -->
+      <button class="btn d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addPartModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-size: 14px; font-weight: 500;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add New Part
+      </button>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 14px">
+        <thead style="background-color: #f8fafc;">
+          <tr>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">SKU / CODE</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">PART NAME</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold text-center" style="font-size: 13px">MIN STOCK</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold text-center" style="font-size: 13px">CURRENT STOCK</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">STATUS</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold text-end" style="font-size: 13px">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for part in parts %}
+          <tr>
+            <td class="px-4 py-3 fw-medium text-dark">{{ part.part_id }}</td>
+            <td class="px-4 py-3">{{ part.part_name }} <span class="text-muted small">({{ part.unit }})</span></td>
+            <td class="px-4 py-3 text-center">{{ part.min_level }}</td>
+            <td class="px-4 py-3 text-center fw-semibold {% if part.stock_qty <= part.min_level and part.stock_qty > 0 %}text-warning{% elif part.stock_qty <= 0 %}text-danger{% else %}text-success{% endif %}">
+                {{ part.stock_qty }}
+            </td>
+            <td class="px-4 py-3">
+              {% if part.is_active == 1 %}
+              <span class="badge" style="background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">Active</span>
+              {% else %}
+              <span class="badge" style="background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-end">
+              <div class="d-flex justify-content-end gap-2">
+                <button class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editPartModal{{ loop.index }}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                  Edit
+                </button>
+                <form action="{{ url_for('admin.toggle_part', part_id=part.part_id) }}" method="POST" class="m-0">
+                  <button type="submit" class="btn btn-sm px-3 {% if part.is_active == 1 %}btn-outline-danger{% else %}btn-outline-success{% endif %}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                    {% if part.is_active == 1 %}Disable{% else %}Enable{% endif %}
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Edit Part Modal -->
+          <div class="modal fade" id="editPartModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                  <h5 class="modal-title fw-semibold" style="color: #0f172a;">Edit Part Data</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 text-start">
+                  <form action="{{ url_for('admin.edit_part', part_id=part.part_id) }}" method="POST">
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Part SKU (Cannot Edit)</label>
+                       <input type="text" class="form-control bg-light border-0 p-3" value="{{ part.part_id }}" disabled style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Part Name *</label>
+                       <input type="text" class="form-control bg-light border-0 p-3" name="name" value="{{ part.part_name }}" required style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Unit Base (e.g. pcs, raw)</label>
+                            <input type="text" class="form-control bg-light border-0 p-3" name="unit" value="{{ part.unit }}" required style="border-radius: 8px; font-size: 14px">
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Min Stock Alert Level</label>
+                            <input type="number" class="form-control bg-light border-0 p-3" name="min_stock" value="{{ part.min_level }}" required style="border-radius: 8px; font-size: 14px">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn w-100 py-3" style="background-color: #3b82f6; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+                       Save Changes
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% if not parts %}
+          <tr>
+            <td colspan="6" class="text-center py-5 text-muted">No part data found. Add manually or upload Excel Master.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add Part Modal -->
+<div class="modal fade" id="addPartModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-semibold" style="color: #0f172a;">Add New Part</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form action="{{ url_for('admin.add_part') }}" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Part SKU (Unique Code) *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="sku" placeholder="e.g. P-1001" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Part Name *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="name" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-medium text-secondary" style="font-size: 13px">Unit Measure</label>
+                <input type="text" class="form-control bg-light border-0 p-3" name="unit" value="pcs" style="border-radius: 8px; font-size: 14px">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-medium text-secondary" style="font-size: 13px">Stock Alert Level</label>
+                <input type="number" class="form-control bg-light border-0 p-3" name="min_stock" value="10" style="border-radius: 8px; font-size: 14px">
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Initial Starting Stock *</label>
+            <input type="number" class="form-control bg-light border-0 p-3" name="stock_qty" value="0" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+            Save Part to Master List
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Excel Modal -->
+<div class="modal fade" id="uploadPartModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header px-4 py-3 bg-white" style="border-bottom: 1px solid #e5e7eb;">
+        <h5 class="modal-title fw-semibold mb-0" style="color: #0f172a;">Batch Upload (Excel)</h5>
+        <div class="d-flex align-items-center gap-2">
+          <a href="{{ url_for('admin.download_parts_template') }}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-2 px-3 py-2" style="border-radius: 8px; font-size: 12px; font-weight: 500;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Template.xlsx
+          </a>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body p-4" style="background-color: #faf7f2;">
+        <form action="{{ url_for('admin.upload_parts_master') }}" method="POST" enctype="multipart/form-data">
+          <div class="p-4 rounded-3 mb-4 bg-white border" style="border-color: #e5e7eb !important;">
+            <label for="partExcelFile" class="w-100 p-5 rounded-3 text-center d-block mb-3" style="border: 1px dashed #d6deea; background-color: #f8fafc; cursor: pointer;">
+              <div class="mb-3">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.3">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="fw-medium mb-1" style="color: #0f172a; font-size: 16px;">Drag and drop file here</div>
+              <div class="text-muted mb-3" style="font-size: 13px;">or click to browse</div>
+              <span class="btn btn-sm btn-outline-secondary px-3" style="border-radius: 8px;">Select File</span>
+            </label>
+            <input id="partExcelFile" type="file" name="excel_file" class="d-none" accept=".xlsx,.xls" required />
+            <div id="selectedPartFileName" class="text-center text-muted small">No file selected</div>
+          </div>
+          <button type="submit" class="btn w-100 py-3 fw-medium mb-4" style="background-color: #e2e8f0; color: #1d4f91; border-radius: 8px; font-size: 14px; border: 1px solid #d3dbe6;">
+            Upload and Process
+          </button>
+          <div class="p-3 rounded-3 bg-white border" style="border-color: #d9dee7 !important;">
+            <div class="fw-semibold mb-2" style="font-size: 13px; color: #46638f; letter-spacing: 0.02em;">IMPORTANT NOTE</div>
+            <div class="text-muted mb-2" style="font-size: 12px;">
+              Please ensure your Excel file follows the template structure exactly to avoid data errors.
+            </div>
+            <div style="font-size: 12px; color: #334155;">
+              Required columns: <strong>SKU</strong>, <strong>Part Name</strong>, <strong>Unit</strong>, <strong>Min Stock</strong>, <strong>Initial Stock</strong>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const partFileInput = document.getElementById("partExcelFile");
+    const fileNameLabel = document.getElementById("selectedPartFileName");
+
+    if (partFileInput && fileNameLabel) {
+      partFileInput.addEventListener("change", function () {
+        fileNameLabel.textContent = this.files && this.files.length > 0
+          ? this.files[0].name
+          : "No file selected";
+      });
+    }
+  });
+</script>
+{% endblock %}

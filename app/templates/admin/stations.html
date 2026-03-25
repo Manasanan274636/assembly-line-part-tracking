@@ -1,0 +1,120 @@
+{% extends "base_admin.html" %} 
+{% block title %}Station Management{% endblock %} 
+
+{% block content %}
+<div class="py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1" style="font-size: 20px; font-weight: 600; color: #1e293b">Assembly Stations</h4>
+      <p class="mb-0 text-muted" style="font-size: 14px">Manage production stations where parts are consumed.</p>
+    </div>
+    <button class="btn d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addStationModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-size: 14px; font-weight: 500;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Add New Station
+    </button>
+  </div>
+
+  <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 14px">
+        <thead style="background-color: #f8fafc;">
+          <tr>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px; width: 80px;">ID</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">STATION NAME</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px; width: 40%">DESCRIPTION</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">STATUS</th>
+            <th class="border-0 px-4 py-3 text-secondary fw-semibold text-end" style="font-size: 13px">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for station in stations %}
+          <tr>
+            <td class="px-4 py-3 fw-medium text-dark">{{ station.station_id }}</td>
+            <td class="px-4 py-3 fw-semibold" style="color: #0f172a;">{{ station.station_name }}</td>
+            <td class="px-4 py-3 text-muted" style="white-space: normal;">{{ station.description or '-' }}</td>
+            <td class="px-4 py-3">
+              {% if station.is_active == 1 %}
+              <span class="badge" style="background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">Active</span>
+              {% else %}
+              <span class="badge" style="background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-end">
+              <div class="d-flex justify-content-end gap-2">
+                <button class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editStationModal{{ station.station_id }}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                  Edit
+                </button>
+                <form action="{{ url_for('admin.toggle_station', station_id=station.station_id) }}" method="POST" class="m-0">
+                  <button type="submit" class="btn btn-sm px-3 {% if station.is_active == 1 %}btn-outline-danger{% else %}btn-outline-success{% endif %}" style="border-radius: 6px; font-size: 12px; font-weight: 500;">
+                    {% if station.is_active == 1 %}Disable{% else %}Enable{% endif %}
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Edit Station Modal -->
+          <div class="modal fade" id="editStationModal{{ station.station_id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                  <h5 class="modal-title fw-semibold" style="color: #0f172a;">Edit Station Data</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 text-start">
+                  <form action="{{ url_for('admin.edit_station', station_id=station.station_id) }}" method="POST">
+                    <div class="mb-3">
+                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Station Name *</label>
+                       <input type="text" class="form-control bg-light border-0 p-3" name="name" value="{{ station.station_name }}" required style="border-radius: 8px; font-size: 14px">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-medium text-secondary" style="font-size: 13px">Description</label>
+                        <textarea class="form-control bg-light border-0 p-3" name="description" rows="3" style="border-radius: 8px; font-size: 14px; resize: none;">{{ station.description or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn w-100 py-3" style="background-color: #3b82f6; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+                       Save Changes
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% if not stations %}
+          <tr>
+            <td colspan="5" class="text-center py-5 text-muted">No operational stations registered.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add Station Modal -->
+<div class="modal fade" id="addStationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-semibold" style="color: #0f172a;">Register New Station</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form action="{{ url_for('admin.add_station') }}" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Station Name *</label>
+            <input type="text" class="form-control bg-light border-0 p-3" name="name" placeholder="e.g. SMT Line 1" required style="border-radius: 8px; font-size: 14px">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium text-secondary" style="font-size: 13px">Description / Location</label>
+            <textarea class="form-control bg-light border-0 p-3" name="description" rows="3" placeholder="Additional details..." style="border-radius: 8px; font-size: 14px; resize: none;"></textarea>
+          </div>
+          <button type="submit" class="btn w-100 py-3" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; font-size: 14px">
+            Save Station
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
