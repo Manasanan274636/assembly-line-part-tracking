@@ -1,7 +1,8 @@
 {# หน้าจอ "รายงานและสถิติ" สำหรับพนักงาน ทำไมถึงมีหน้านี้? ->
 ใช้สำหรับดูสรุปผลการทำงานของตัวเอง เช่น ยอดผลิตสะสม, ประสิทธิภาพการผลิต
 (Efficiency), และยอดของเสียประจำสัปดาห์ครับ #} {% extends "base_operator.html"
-%} {% block title %}Reports{% endblock %} {% block content %}
+%} {% import "components/search_filter.html" as filter_comp %}
+{% block title %}Reports{% endblock %} {% block content %}
 <div class="mb-4">
   <h1 class="page-title">Reports & Analytics</h1>
   <p class="page-subtitle">Generate and export production reports</p>
@@ -191,19 +192,18 @@
     style="font-size: 13px"
   >
     <div class="d-flex align-items-center gap-3 flex-grow-1">
-      <div class="text-muted fw-medium">Date Range</div>
-      <select
-        class="form-select w-auto ps-5 border-0 bg-light fw-medium"
-        style="
-          background-image: url(&quot;data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2218%22 height=%2218%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%224%22 width=%2218%22 height=%2218%22 rx=%222%22 ry=%222%22></rect><line x1=%2216%22 y1=%222%22 x2=%2216%22 y2=%226%22></line><line x1=%228%22 y1=%222%22 x2=%228%22 y2=%226%22></line><line x1=%223%22 y1=%2210%22 x2=%2221%22 y2=%2210%22></line></svg>&quot;);
-          background-repeat: no-repeat;
-          background-position: left 12px center;
-        "
-      >
-        <option>This Month</option>
-        <option>Last Month</option>
-        <option>Last 7 Days</option>
-      </select>
+      <div class="text-muted fw-medium" style="white-space: nowrap;">Date Range</div>
+      {{ filter_comp.render_select_dropdown(
+        id="dateRangeSelect",
+        name="date_range",
+        options=[
+          ('this_month', 'This Month'),
+          ('last_month', 'Last Month'),
+          ('last_7_days', 'Last 7 Days')
+        ],
+        selected_value='this_month',
+        icon_html='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>'
+      ) }}
       <button
         class="btn btn-light d-flex align-items-center gap-2 text-muted fw-medium py-1 px-3 border"
       >
@@ -914,22 +914,30 @@
     const d = reportData[type] || reportData.production;
 
     // Update Titles
-    document.getElementById("trend-title").innerText = d.trendTitle;
-    document.getElementById("scrap-title").innerText = d.scrapTitle;
-    document.getElementById("efficiency-title").innerText = d.effTitle;
-    document.getElementById("table-title").innerText = d.tableTitle;
+    const trendTitle = document.getElementById("trend-title");
+    const scrapTitle = document.getElementById("scrap-title");
+    const effTitle = document.getElementById("efficiency-title");
+    const tableTitle = document.getElementById("table-title");
+
+    if (trendTitle) trendTitle.innerText = d.trendTitle;
+    if (scrapTitle) scrapTitle.innerText = d.scrapTitle;
+    if (effTitle) effTitle.innerText = d.effTitle;
+    if (tableTitle) tableTitle.innerText = d.tableTitle;
 
     // Update Stats
-    statsContainer.innerHTML = d.stats
-      .map(
-        (s, idx) => `
-        <div class="d-flex justify-content-between align-items-center p-3 ${idx === d.stats.length - 1 ? "" : "mb-2"} rounded" style="background-color: #f1f5f9">
-            <span class="text-muted small">${s.label}</span>
-            <span class="${s.color || ""} fw-medium" style="font-size: 14px">${s.val}</span>
-        </div>
-    `,
-      )
-      .join("");
+    const statsContainer = document.getElementById("stats-container");
+    if (statsContainer && d.stats) {
+      statsContainer.innerHTML = d.stats
+        .map(
+          (s, idx) => `
+          <div class="d-flex justify-content-between align-items-center p-3 ${idx === d.stats.length - 1 ? "" : "mb-2"} rounded" style="background-color: #f1f5f9">
+              <span class="text-muted small">${s.label}</span>
+              <span class="${s.color || ""} fw-medium" style="font-size: 14px">${s.val}</span>
+          </div>
+      `,
+        )
+        .join("");
+    }
 
     // Update Headers
     const tableHeader = document.getElementById("table-header");

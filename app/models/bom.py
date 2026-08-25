@@ -4,7 +4,7 @@ from app.utils.db import db
 class BOM(db.Model):
     __tablename__ = "bom"
 
-    bom_id = db.Column(db.Integer, primary_key=True)
+    bom_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     model = db.Column(db.String(50))
     part_id = db.Column(db.String(50), db.ForeignKey("parts.part_id"), primary_key=True)
     qty_per_unit = db.Column(db.Integer, nullable=False)

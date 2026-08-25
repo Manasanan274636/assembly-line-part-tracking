@@ -1,7 +1,9 @@
 {# หน้าสำหรับ "นำเข้าข้อมูล" (Data Entry) ครับ ทำไมถึงมีหน้านี้? ->
 เพื่อให้แอดมินสามารถบันทึกข้อมูลพื้นฐาน (Master Data) เช่น เพิ่มชิ้นส่วนใหม่
 หรือเพิ่มสถานีงาน ที่สำคัญ: หน้านี้มีปุ่มสำหรับ "Import Excel"
-เพื่อโหลดข้อมูลจำนวนมากเข้าระบบทีเดียวครับ #} {% extends "base_admin.html" %} {%
+เพื่อโหลดข้อมูลจำนวนมากเข้าระบบทีเดียวครับ #} {% extends "base_admin.html" %}
+{% import "components/search_filter.html" as filter_comp %}
+{%
 block title %}Data Entry{% endblock %} {% block content %}
 <div class="py-4">
   <div class="row g-4">
@@ -34,20 +36,13 @@ block title %}Data Entry{% endblock %} {% block content %}
                 style="font-size: 13px"
                 >Select Station *</label
               >
-              <div class="custom-select-wrapper">
-                <select
-                  class="form-select border-0 bg-light p-3 custom-select"
-                  name="station_id"
-                  required
-                >
-                  <option value="" selected disabled>
-                    Choose a station...
-                  </option>
-                  {% for station in stations %}
-                  <option value="{{ station.id }}">{{ station.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
+              {{ filter_comp.render_select_dropdown(
+                id='station_id',
+                name='station_id',
+                options=[{'value': '', 'label': 'Choose a station...'}] + [{'value': s.station_id|string, 'label': s.station_name} for s in stations],
+                selected_value='',
+                extra_classes='w-100'
+              ) }}
             </div>
 
             <div class="mb-4">
@@ -56,20 +51,13 @@ block title %}Data Entry{% endblock %} {% block content %}
                 style="font-size: 13px"
                 >Select Part *</label
               >
-              <div class="custom-select-wrapper">
-                <select
-                  class="form-select border-0 bg-light p-3 custom-select"
-                  name="part_id"
-                  required
-                >
-                  <option value="" selected disabled>Choose a part...</option>
-                  {% for part in parts %}
-                  <option value="{{ part.id }}">
-                    {{ part.name }} {{ part.id }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
+              {{ filter_comp.render_select_dropdown(
+                id='part_id',
+                name='part_id',
+                options=[{'value': '', 'label': 'Choose a part...'}] + [{'value': p.part_id|string, 'label': p.part_name ~ ' (' ~ p.part_id ~ ')'} for p in parts],
+                selected_value='',
+                extra_classes='w-100'
+              ) }}
             </div>
 
             <div class="mb-4">
@@ -330,34 +318,16 @@ block title %}Data Entry{% endblock %} {% block content %}
 </script>
 
 <style>
-  .custom-select-wrapper {
-    position: relative;
-  }
-  .custom-select {
-    appearance: none;
-    -webkit-appearance: none;
-    border-radius: 8px !important;
-    padding-right: 40px !important;
-    font-size: 14px !important;
-    color: #334155;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 18px;
-    border: 1px solid transparent !important;
-    transition: all 0.2s ease;
-  }
-  .custom-select:focus {
-    background-color: #ffffff !important;
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
-  }
   .border-dashed:hover {
     border-color: #3b82f6 !important;
     background-color: #f8fafc !important;
     cursor: pointer;
   }
   .form-control:focus {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6 !important;
+  }
+  .form-select:focus {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
     border-color: #3b82f6 !important;
   }

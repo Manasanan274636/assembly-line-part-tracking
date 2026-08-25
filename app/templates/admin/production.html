@@ -1,9 +1,7 @@
-{# หน้าสำหรับ "จัดการแผนการผลิต" (Production Plan) ทำไมถึงมีหน้านี้? ->
-เพื่อให้แอดมินกำหนดเป้าหมายการผลิตในแต่ละวัน และใส่สูตรการผลิต (BOM)
-ว่างานนี้ต้องใช้อะไหล่อะไรบ้าง ข้อมูลที่แอดมินคีย์หน้านี้
-จะไปปรากฏที่หน้าจอของพนักงาน (Operator) เพื่อให้เขาเริ่มทำงานครับ #} {% extends
-"base_admin.html" %} {% block title %}Production Plan{% endblock %} {% block
-content %}
+{% extends "base_admin.html" %} 
+{% import "components/search_filter.html" as filter_comp %}
+{% block title %}Production Plan{% endblock %} 
+{% block content %}
 <div class="py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -11,17 +9,15 @@ content %}
       <p class="mb-0 text-muted" style="font-size: 14px">Create plans by production period and calculate part demand from BOM.</p>
     </div>
     <div class="d-flex gap-2 align-items-center">
-      <form method="GET" action="{{ url_for('admin.production') }}" style="min-width: 280px;">
-        <select name="order_id" class="form-select" onchange="this.form.submit()">
-          <option value="">Select plan to view demand</option>
-          {% for listed_plan in plans %}
-          <option value="{{ listed_plan.order_id }}" {% if plan and listed_plan.order_id == plan.order_id %}selected{% endif %}>
-            {{ listed_plan.order_id }} | {{ listed_plan.product_name }} | {{ listed_plan.start_date }}{% if listed_plan.end_date and listed_plan.end_date != listed_plan.start_date %} - {{ listed_plan.end_date }}{% endif %}
-          </option>
-          {% endfor %}
-        </select>
+      <form method="GET" action="{{ url_for('admin.production') }}" style="min-width: 320px;">
+        {% set plan_options = [('', 'Select plan to view demand')] %}
+        {% for listed_plan in plans %}
+          {% set label_str = listed_plan.order_id ~ ' | ' ~ listed_plan.product_name %}
+          {% set _ = plan_options.append((listed_plan.order_id, label_str)) %}
+        {% endfor %}
+        {{ filter_comp.render_select_dropdown(id="planOrderSelect", name="order_id", options=plan_options, selected_value=plan.order_id if plan else '', auto_submit=True, extra_classes="w-100") }}
       </form>
-      <button class="btn btn-sm d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addPlanModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; border: none;">
+      <button class="btn btn-sm d-flex align-items-center gap-2 px-3 py-2" data-bs-toggle="modal" data-bs-target="#addPlanModal" style="background-color: #0f172a; color: white; border-radius: 8px; font-weight: 500; border: none; min-width: 140px; justify-content: center;">
         Create New Plan
       </button>
     </div>

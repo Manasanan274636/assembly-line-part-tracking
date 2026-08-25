@@ -1,4 +1,5 @@
 {% extends "base_admin.html" %} 
+{% import "components/search_filter.html" as filter_comp %}
 {% block title %}Part Management{% endblock %} 
 
 {% block content %}
@@ -23,19 +24,27 @@
     </div>
   </div>
 
-  <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
-    <div class="card-body p-3">
-      <form method="GET" class="d-flex gap-2">
-        <input type="hidden" name="stock_sort" value="{{ stock_sort or 'name' }}">
-        <input type="text" name="q" value="{{ q or '' }}" class="form-control bg-light border-0" placeholder="Search by SKU, part name, or unit" style="border-radius: 10px;">
-        <button type="submit" class="btn btn-outline-primary px-4" style="border-radius: 10px;">Search</button>
-      </form>
-    </div>
-  </div>
+  {{ filter_comp.render_filter_bar(
+    search_id="partsSearchInput",
+    search_name="q",
+    search_placeholder="Search by SKU, part name, or unit...",
+    search_value=q,
+    dropdown_id="partsStatusFilter",
+    dropdown_name="status",
+    dropdown_options=[
+      {"value": "all", "label": "All Statuses"},
+      {"value": "active", "label": "Active Parts"},
+      {"value": "inactive", "label": "Inactive Parts"},
+      {"value": "critical", "label": "Out of Stock / Critical"},
+      {"value": "low", "label": "Low Stock"},
+      {"value": "normal", "label": "Normal Stock"}
+    ],
+    dropdown_value=status or 'all'
+  ) }}
 
   <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0" style="font-size: 14px">
+      <table class="table table-hover align-middle mb-0" id="partsTable" style="font-size: 14px">
         <thead style="background-color: #f8fafc;">
           <tr>
             <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">SKU / CODE</th>
@@ -56,7 +65,7 @@
         </thead>
         <tbody>
           {% for part in parts %}
-          <tr>
+          <tr data-status="{% if part.stock_qty <= 0 %}critical{% elif part.stock_qty <= part.min_level %}low{% elif part.is_active == 1 %}active{% else %}inactive{% endif %}">
             <td class="px-4 py-3 fw-medium text-dark">{{ part.part_id }}</td>
             <td class="px-4 py-3">{{ part.part_name }} <span class="text-muted small">({{ part.unit }})</span></td>
             <td class="px-4 py-3 text-center">{{ part.min_level }}</td>
@@ -246,6 +255,14 @@
         fileNameLabel.textContent = this.files && this.files.length > 0
           ? this.files[0].name
           : "No file selected";
+      });
+    }
+
+    if (typeof window.initTableFilter === "function") {
+      window.initTableFilter({
+        inputId: "partsSearchInput",
+        dropdownId: "partsStatusFilter",
+        tableId: "partsTable"
       });
     }
   });

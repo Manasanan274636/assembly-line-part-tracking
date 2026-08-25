@@ -1,4 +1,5 @@
 {% extends "base_admin.html" %} 
+{% import "components/search_filter.html" as filter_comp %}
 {% block title %}User Management{% endblock %} 
 
 {% block content %}
@@ -17,18 +18,24 @@
     </button>
   </div>
 
-  <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
-    <div class="card-body p-3">
-      <form method="GET" class="d-flex gap-2">
-        <input type="text" name="q" value="{{ q or '' }}" class="form-control bg-light border-0" placeholder="Search by username, email, or role" style="border-radius: 10px;">
-        <button type="submit" class="btn btn-outline-primary px-4" style="border-radius: 10px;">Search</button>
-      </form>
-    </div>
-  </div>
+  {{ filter_comp.render_filter_bar(
+    search_id="userSearchInput",
+    search_name="q",
+    search_placeholder="Search by username, email, or role...",
+    search_value=q,
+    dropdown_id="userRoleFilter",
+    dropdown_name="role",
+    dropdown_options=[
+      {"value": "all", "label": "All Roles"},
+      {"value": "admin", "label": "Administrator"},
+      {"value": "operator", "label": "Operator"}
+    ],
+    dropdown_value=role or 'all'
+  ) }}
 
   <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0" style="font-size: 14px">
+      <table class="table table-hover align-middle mb-0" id="usersTable" style="font-size: 14px">
         <thead style="background-color: #f8fafc;">
           <tr>
             <th class="border-0 px-4 py-3 text-secondary fw-semibold" style="font-size: 13px">USERNAME</th>
@@ -40,7 +47,7 @@
         </thead>
         <tbody>
           {% for user in users %}
-          <tr>
+          <tr data-status="{{ user.role|lower }}">
             <td class="px-4 py-3">
               <div class="d-flex align-items-center gap-3">
                 <div style="width: 36px; height: 36px; background-color: {% if user.role == 'admin' %}#eff6ff{% else %}#f8fafc{% endif %}; color: {% if user.role == 'admin' %}#2563eb{% else %}#64748b{% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">
@@ -90,7 +97,7 @@
           <!-- Edit User Modal -->
           <div class="modal fade" id="editUserModal{{ user.user_id }}" tabindex="-1" aria-labelledby="editUserModalLabel{{ user.user_id }}" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
-              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+              <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: visible;">
                 <div class="modal-header border-0 pb-0 pt-4 px-4">
                   <h5 class="modal-title fw-semibold" id="editUserModalLabel{{ user.user_id }}" style="color: #0f172a;">Edit User</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -105,13 +112,19 @@
                        <label class="form-label fw-medium text-secondary" style="font-size: 13px">Email Address</label>
                        <input type="email" class="form-control bg-light border-0 p-3" name="email" value="{{ user.email or '' }}" required style="border-radius: 8px; font-size: 14px">
                     </div>
-                    <div class="mb-3">
-                       <label class="form-label fw-medium text-secondary" style="font-size: 13px">Role *</label>
-                       <select class="form-select bg-light border-0 p-3" name="role" required style="border-radius: 8px; font-size: 14px">
-                         <option value="operator" {% if user.role == 'operator' %}selected{% endif %}>Operator (Production Line)</option>
-                         <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrator</option>
-                       </select>
-                    </div>
+                     <div class="mb-3">
+                        <label class="form-label fw-medium text-secondary" style="font-size: 13px">Role *</label>
+                        {{ filter_comp.render_select_dropdown(
+                          id='editUserRole_' ~ user.user_id,
+                          name='role',
+                          options=[
+                            {'value': 'operator', 'label': 'Operator (Production Line)'},
+                            {'value': 'admin',    'label': 'Administrator'}
+                          ],
+                          selected_value=user.role,
+                          extra_classes='w-100 modal-dropdown'
+                        ) }}
+                     </div>
                     <div class="mb-4">
                        <label class="form-label fw-medium text-secondary" style="font-size: 13px">New Password</label>
                        <input type="password" class="form-control bg-light border-0 p-3" name="password" minlength="6" placeholder="Leave blank to keep current password" style="border-radius: 8px; font-size: 14px">
@@ -148,7 +161,7 @@
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: visible;">
       <div class="modal-header border-0 pb-0 pt-4 px-4">
         <h5 class="modal-title fw-semibold" id="addUserModalLabel" style="color: #0f172a;">Add New User</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -165,10 +178,16 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-medium text-secondary" style="font-size: 13px">Role *</label>
-            <select class="form-select bg-light border-0 p-3" name="role" required style="border-radius: 8px; font-size: 14px">
-              <option value="operator" selected>Operator (Production Line)</option>
-              <option value="admin">Administrator</option>
-            </select>
+            {{ filter_comp.render_select_dropdown(
+              id='addUserRole',
+              name='role',
+              options=[
+                {'value': 'operator', 'label': 'Operator (Production Line)'},
+                {'value': 'admin',    'label': 'Administrator'}
+              ],
+              selected_value='operator',
+              extra_classes='w-100 modal-dropdown'
+            ) }}
           </div>
           <div class="mb-4">
             <label class="form-label fw-medium text-secondary" style="font-size: 13px">Password *</label>
@@ -182,4 +201,23 @@
     </div>
   </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (typeof window.initTableFilter === "function") {
+      window.initTableFilter({
+        inputId: "userSearchInput",
+        dropdownId: "userRoleFilter",
+        tableId: "usersTable"
+      });
+    }
+  });
+</script>
+
+<style>
+  /* Custom dropdown inside Bootstrap modal — must be above modal z-index (1055) */
+  .modal-dropdown .custom-select-menu {
+    z-index: 1200 !important;
+  }
+</style>
 {% endblock %}

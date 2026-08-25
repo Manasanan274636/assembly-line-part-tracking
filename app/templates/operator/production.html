@@ -1,5 +1,7 @@
-{% extends "base_operator.html" %} {% block title %}Production Plan{% endblock
-%} {% block content %}
+{% extends "base_operator.html" %} 
+{% import "components/search_filter.html" as filter_comp %}
+{% block title %}Production Plan{% endblock %} 
+{% block content %}
 <style>
   .table thead th {
     border-bottom: none !important;
@@ -11,62 +13,17 @@
   <p class="page-subtitle">Manage production orders and bill of materials</p>
 </div>
 
-<div class="card border-0 shadow-sm mb-4">
-  <div class="p-3 px-4 d-flex gap-3 align-items-center justify-content-between">
-    <div class="input-group flex-grow-1">
-      <span
-        class="input-group-text bg-white border-end-0 text-muted ps-2 border border-light"
-        style="border-right: none !important"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-      </span>
-      <input
-        id="productionSearch"
-        type="text"
-        class="form-control border-start-0 ps-0 border border-light shadow-none"
-        value="{{ q or '' }}"
-        placeholder="Search by order ID or product..."
-        style="border-left: none !important; margin-left: -5px"
-      />
-    </div>
-    <div class="position-relative">
-      <button
-        id="dateFilterBtn"
-        class="btn btn-primary d-flex align-items-center gap-2 text-nowrap px-3 py-2"
-        style="font-size: 13px; border-radius: 6px"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polygon
-            points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
-          ></polygon>
-        </svg>
-        <span id="filterBtnText">Filter by Date</span>
-      </button>
-    </div>
-  </div>
-</div>
-
+{{ filter_comp.render_filter_bar(
+  search_id="productionSearchInput",
+  search_placeholder="Search by order ID, product name, or status...",
+  dropdown_id="productionStatusFilter",
+  dropdown_options=[
+    {"value": "all", "label": "All Production Statuses"},
+    {"value": "in progress", "label": "In Progress"},
+    {"value": "completed", "label": "Completed"},
+    {"value": "pending", "label": "Pending"}
+  ]
+) }}
 <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
   <div class="text-muted small">Showing {{ plans|length }} of {{ pagination.total }} production order(s)</div>
   <div class="d-flex gap-2">
@@ -83,7 +40,7 @@
     </h5>
   </div>
   <div class="table-responsive">
-    <table class="table mb-0" style="font-size: 12px">
+    <table class="table mb-0" id="opProductionTable" style="font-size: 12px">
       <thead>
         <tr class="text-dark">
           <th
@@ -170,7 +127,7 @@
       </thead>
       <tbody id="production-table-body" class="bg-white">
         {% for plan in plans %}
-        <tr class="align-middle" style="border-bottom: 1px solid #f1f5f9">
+        <tr class="align-middle" data-status="{{ plan.status|lower }}" style="border-bottom: 1px solid #f1f5f9">
           <td class="ps-4 text-dark fw-medium py-3">{{ plan.order_id }}</td>
           <td class="text-dark py-3" style="font-size: 11px">
             {{ plan.product_name }}
@@ -436,35 +393,13 @@
         }
       });
     });
+    if (typeof window.initTableFilter === "function") {
+      window.initTableFilter({
+        inputId: "productionSearchInput",
+        dropdownId: "productionStatusFilter",
+        tableId: "opProductionTable"
+      });
+    }
   });
-
-  function applyFilters(date) {
-    const btnText = document.getElementById("filterBtnText");
-    const searchInput = document.getElementById("productionSearch");
-    const params = new URLSearchParams(window.location.search);
-    const searchValue = searchInput ? searchInput.value.trim() : "";
-
-    if (searchValue) {
-      params.set("q", searchValue);
-    } else {
-      params.delete("q");
-    }
-
-    if (date) {
-      btnText.textContent = new Date(date).toLocaleDateString();
-      btnText.dataset.rawDate = date;
-      params.set("date", date);
-    } else {
-      btnText.textContent = "Filter by Date";
-      btnText.dataset.rawDate = "";
-      params.delete("date");
-    }
-
-    params.delete("page");
-    const query = params.toString();
-    window.location.href = query
-      ? "{{ url_for('operator.production') }}?" + query
-      : "{{ url_for('operator.production') }}";
-  }
 </script>
 {% endblock %}

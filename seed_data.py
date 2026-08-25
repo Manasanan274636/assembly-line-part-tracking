@@ -13,6 +13,7 @@ from app.models.station import Station
 from app.models.production_plan import ProductionPlan
 from app.models.bom import BOM
 from app.models.consumption import Consumption
+from app.models.scrap import Scrap
 from app.models.stock import Stock
 from datetime import datetime, date
 
@@ -30,9 +31,10 @@ def seed_data():
         op = User(username="operator", email="operator@example.com", role="operator")
         op.set_password("op123")
         db.session.add_all([admin, op])
+        db.session.flush()
 
         print("Creating default stations...")
-        s1 = Station(name="Assembly Line 1", description="Main Assembly")
+        s1 = Station(station_name="Assembly Line 1", description="Main Assembly")
         db.session.add(s1)
         db.session.flush()
 
@@ -111,16 +113,16 @@ def seed_data():
                 "scrap": 7,
             },
         ]
-        # Total stock: 250+87+350+28+180+92+225+35 = 1247 (Matches Figma)
-        # Total scrap: 10+15+12+5+4+22+14+7 = 89 (Matches Figma)
 
         print("Creating active production plan...")
         plan = ProductionPlan(
-            station_id=s1.id,
-            project_title="Main Assembly Shift A",
-            target_date=date.today(),
-            planned_qty=100,
+            order_id="ORD-001",
+            product_name="Product Model A",
+            quantity_planned=100,
+            start_date=date.today(),
+            end_date=date.today(),
             status="In Progress",
+            created_by=admin.user_id,
         )
         db.session.add(plan)
         db.session.flush()
@@ -129,32 +131,59 @@ def seed_data():
         for p_data in figma_parts:
             # Create Part
             part = Part(
-                name=p_data["name"],
-                sku=p_data["sku"],
-                current_stock=p_data["stock"],
-                min_stock_level=p_data["min"],
-                category="General",
+                part_id=p_data["sku"],
+                part_name=p_data["name"],
+                stock_qty=p_data["stock"],
+                min_level=p_data["min"],
+                safety_stock=p_data["min"] // 2,
+                max_level=p_data["stock"] * 2,
+                unit="pcs",
+                is_active=1,
             )
             db.session.add(part)
             db.session.flush()
 
-            # Create BOM for the plan
-            bom = BOM(plan_id=plan.id, part_id=part.id, quantity_required=p_data["req"])
+            # Create BOM for the plan (Product Model A)
+            bom = BOM(
+                model="Product Model A",
+                part_id=part.part_id,
+                qty_per_unit=max(1, p_data["req"] // 100)
+            )
             db.session.add(bom)
 
             # Create Consumption record
             consumption = Consumption(
-                station_id=s1.id,
-                plan_id=plan.id,
-                part_id=part.id,
-                quantity_used=p_data["used"],
-                scrap_qty=p_data["scrap"],
-                lot_no=f"LOT-{part.sku}-001",
+                station_id=s1.station_id,
+                order_id=plan.order_id,
+                part_id=part.part_id,
+                planned_qty=p_data["used"],
+                actual_qty=p_data["used"],
+                recorded_by=op.user_id,
             )
             db.session.add(consumption)
+            db.session.flush()
+
+            # Create Scrap record if any
+            if p_data["scrap"] > 0:
+                scrap = Scrap(
+                    consumption_id=consumption.consumption_id,
+                    scrap_qty=p_data["scrap"],
+                    reason="Defect detected on line"
+                )
+                db.session.add(scrap)
+
+            # Create initial stock history record
+            stock_history = Stock(
+                part_id=part.part_id,
+                change_qty=p_data["stock"],
+                change_type="IN",
+                reference_id="Initial Seed",
+                created_by=admin.user_id
+            )
+            db.session.add(stock_history)
 
         db.session.commit()
-        print("Database seeded with Figma-accurate data!")
+        print("Database seeded with Figma-accurate data successfully!")
 
 
 if __name__ == "__main__":

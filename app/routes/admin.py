@@ -18,7 +18,7 @@ from flask import (
 import pandas as pd
 import io
 from datetime import datetime
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app.utils.decorators import role_required
 from app.utils.db import db
 from sqlalchemy import func, or_
@@ -480,11 +480,17 @@ def upload_parts_master():
             unit = str(row.get("Unit", "pcs")).strip()
             min_stock = int(row.get("Min Stock", 0))
             
+            # Read Safety Stock and Max Stock
+            safety_stock = int(row.get("Safety Stock")) if pd.notna(row.get("Safety Stock")) else None
+            max_stock = int(row.get("Max Stock")) if pd.notna(row.get("Max Stock")) else None
+            
             existing = Part.query.filter_by(part_id=sku).first()
             if existing:
                 existing.part_name = name
                 existing.unit = unit
                 existing.min_level = min_stock
+                existing.safety_stock = safety_stock
+                existing.max_level = max_stock
                 update_count += 1
             else:
                 initial_stock = int(row.get("Initial Stock", 0))
@@ -493,6 +499,8 @@ def upload_parts_master():
                     part_name=name,
                     unit=unit,
                     min_level=min_stock,
+                    safety_stock=safety_stock,
+                    max_level=max_stock,
                     stock_qty=initial_stock,
                     is_active=1
                 )
@@ -528,6 +536,8 @@ def download_parts_template():
                 "Part Name": "Bracket Assembly",
                 "Unit": "pcs",
                 "Min Stock": 50,
+                "Safety Stock": 100,
+                "Max Stock": 500,
                 "Initial Stock": 200,
             },
             {
@@ -535,6 +545,8 @@ def download_parts_template():
                 "Part Name": "Bolt M8",
                 "Unit": "pcs",
                 "Min Stock": 100,
+                "Safety Stock": 200,
+                "Max Stock": 2000,
                 "Initial Stock": 1000,
             },
         ]
@@ -1139,43 +1151,52 @@ def upload_excel():
         from flask_login import current_user
 
         success_count = 0
-        for _, row in df.iterrows():
-            station = Station.query.filter_by(
-                station_name=str(row["StationName"]).strip()
-            ).first()
-            part = Part.query.filter_by(part_id=str(row["PartSKU"]).strip()).first()
+        skipped_rows = []
+        
+        for idx, row in df.iterrows():
+            station_name_str = str(row.get("StationName", "")).strip()
+            part_sku_str = str(row.get("PartSKU", "")).strip()
+            
+            if not station_name_str or not part_sku_str or station_name_str == "nan" or part_sku_str == "nan":
+                continue
+                
+            station = Station.query.filter_by(station_name=station_name_str).first()
+            part = Part.query.filter_by(part_id=part_sku_str).first()
 
-            if station and part:
-                # Find active plan
-                plan = ProductionPlan.query.filter_by(status="In Progress").first()
-                if not plan:
-                    plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
+            if not station or not part:
+                skipped_rows.append(f"Row {idx+2}: SKU '{part_sku_str}' or Station '{station_name_str}' not found")
+                continue
 
-                if plan:
-                    qty = int(row["QuantityUsed"])
-                    scrap_qty = int(row.get("ScrapQty", 0))
+            # Find active plan
+            plan = ProductionPlan.query.filter_by(status="In Progress").first()
+            if not plan:
+                plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
 
-                    cons = Consumption(
-                        station_id=station.station_id,
-                        part_id=part.part_id,
-                        order_id=plan.order_id,
-                        planned_qty=qty,
-                        actual_qty=qty,
-                        recorded_by=current_user.user_id
+            if plan:
+                qty = int(row.get("QuantityUsed", 0))
+                scrap_qty = int(row.get("ScrapQty", 0))
+
+                cons = Consumption(
+                    station_id=station.station_id,
+                    part_id=part.part_id,
+                    order_id=plan.order_id,
+                    planned_qty=qty,
+                    actual_qty=qty,
+                    recorded_by=current_user.user_id
+                )
+                db.session.add(cons)
+                db.session.flush()
+
+                if scrap_qty > 0:
+                    new_scrap = Scrap(
+                        consumption_id=cons.consumption_id,
+                        scrap_qty=scrap_qty,
+                        reason="Excel Upload"
                     )
-                    db.session.add(cons)
-                    db.session.flush()
-
-                    if scrap_qty > 0:
-                        new_scrap = Scrap(
-                            consumption_id=cons.consumption_id,
-                            scrap_qty=scrap_qty,
-                            reason="Excel Upload"
-                        )
-                        db.session.add(new_scrap)
-                    
-                    part.stock_qty -= (qty + scrap_qty)
-                    success_count += 1
+                    db.session.add(new_scrap)
+                
+                part.stock_qty -= (qty + scrap_qty)
+                success_count += 1
 
         if success_count > 0:
             log = ActivityLog(
@@ -1185,9 +1206,20 @@ def upload_excel():
             )
             db.session.add(log)
             db.session.commit()
-            flash(f"Successfully processed {success_count} records from Excel!", "success")
+            
+            msg = f"Successfully processed {success_count} records from Excel!"
+            if skipped_rows:
+                msg += f" Note: Skipped {len(skipped_rows)} rows due to invalid data: {'; '.join(skipped_rows[:3])}"
+                if len(skipped_rows) > 3:
+                    msg += " ..."
+                flash(msg, "warning")
+            else:
+                flash(msg, "success")
         else:
-            flash("No matching records found in Excel.", "warning")
+            if skipped_rows:
+                flash(f"Failed to import. Errors: {'; '.join(skipped_rows[:3])}", "danger")
+            else:
+                flash("No matching records found in Excel.", "warning")
 
     except Exception as e:
         db.session.rollback()
@@ -1323,7 +1355,7 @@ def stock():
 
     inventory_page = _paginate_query(inventory_query, per_page=10, page_param="inv_page")
     history_page = _paginate_query(
-        Stock.query.order_by(Stock.stock_id.desc()), per_page=10, page_param="hist_page"
+        Stock.query.order_by(Stock.history_id.desc()), per_page=10, page_param="hist_page"
     )
     claims_page = _paginate_query(
         Claim.query.order_by(Claim.claim_id.desc()), per_page=10, page_param="claim_page"
@@ -1339,6 +1371,67 @@ def stock():
         claims_pagination=claims_page,
         q=q,
     )
+
+
+@bp.route("/claims/update/<claim_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def update_claim_status(claim_id):
+    from app.models.claim import Claim
+    from app.models.part import Part
+    from app.models.stock import Stock
+    from app.models.activity_log import ActivityLog
+
+    claim = Claim.query.get(claim_id)
+    if not claim:
+        flash("Claim record not found", "danger")
+        return redirect(url_for("admin.stock"))
+
+    new_status = request.form.get("status")
+    if new_status not in ["Pending", "Approved", "Received", "Rejected"]:
+        flash("Invalid claim status", "danger")
+        return redirect(url_for("admin.stock"))
+
+    old_status = claim.claim_status
+    if old_status == "Received":
+        flash("Claim already received, cannot modify status", "warning")
+        return redirect(url_for("admin.stock"))
+
+    try:
+        claim.claim_status = new_status
+        if new_status == "Received":
+            claim.claim_date = datetime.now().date()
+            # Automatically add quantity to Part stock
+            part = Part.query.get(claim.part_id)
+            if part:
+                part.stock_qty += claim.qty
+                
+                # Add to stock history
+                stock_history = Stock(
+                    part_id=claim.part_id,
+                    change_qty=claim.qty,
+                    change_type="IN",
+                    reference_id=claim.claim_id,
+                    created_by=current_user.user_id
+                )
+                db.session.add(stock_history)
+
+                # Log activity
+                log = ActivityLog(
+                    activity_type="Stock Claim Received",
+                    reference_id=claim.claim_id,
+                    message=f"Received claimed part: {claim.qty} units of {part.part_name} ({part.part_id})",
+                    created_by=current_user.user_id
+                )
+                db.session.add(log)
+
+        db.session.commit()
+        flash(f"Claim status updated to {new_status}", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error updating claim: {str(e)}", "danger")
+
+    return redirect(url_for("admin.stock"))
 
 
 def _get_report_data(start_date_str, end_date_str, station_id, part_id):
@@ -1506,6 +1599,158 @@ def export_reports():
     filename = (
         f"Factory_Report_{start_date_str or 'all'}_to_{end_date_str or 'all'}.xlsx"
     )
+
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.route("/reports/export-execution")
+@login_required
+@role_required("admin")
+def export_execution():
+    from app.models.production_plan import ProductionPlan
+    from app.models.consumption import Consumption
+    from app.models.scrap import Scrap
+    from sqlalchemy import func
+    import pandas as pd
+    import io
+
+    plans = ProductionPlan.query.order_by(ProductionPlan.start_date.desc(), ProductionPlan.order_id.desc()).all()
+    
+    data = []
+    for p in plans:
+        # Sum actual quantity for this plan
+        actual_qty = db.session.query(func.sum(Consumption.actual_qty)).filter_by(order_id=p.order_id).scalar() or 0
+        actual_qty = int(actual_qty)
+
+        # Sum scrap quantity for this plan
+        scrap_qty = db.session.query(func.sum(Scrap.scrap_qty)).join(
+            Consumption, Scrap.consumption_id == Consumption.consumption_id
+        ).filter(Consumption.order_id == p.order_id).scalar() or 0
+        scrap_qty = int(scrap_qty)
+
+        completion = round((actual_qty / p.quantity_planned) * 100, 1) if p.quantity_planned > 0 else 0.0
+        if completion > 100:
+            completion = 100.0
+
+        data.append({
+            "Order ID": p.order_id,
+            "Model Name": p.product_name,
+            "Planned Qty": p.quantity_planned,
+            "Actual Qty": actual_qty,
+            "Scrap Qty": scrap_qty,
+            "Start Date": p.start_date.strftime("%Y-%m-%d") if p.start_date else "—",
+            "End Date": p.end_date.strftime("%Y-%m-%d") if p.end_date else "—",
+            "Status": p.status,
+            "Completion %": f"{completion:.1f}%"
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Execution Plan")
+
+    output.seek(0)
+    filename = f"Production_Execution_Plan_{datetime.now().strftime('%Y%m%d')}.xlsx"
+
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.route("/reports/export-purchasing")
+@login_required
+@role_required("admin")
+def export_purchasing():
+    from app.models.production_plan import ProductionPlan
+    from app.models.bom import BOM
+    from app.models.part import Part
+    from sqlalchemy import func
+    import pandas as pd
+    import io
+
+    # 1. Get all active and pending production plans
+    active_plans = ProductionPlan.query.filter(ProductionPlan.status.in_(["Pending", "In Progress"])).all()
+    
+    # 2. Calculate aggregated part requirements
+    part_requirements = {}
+    for plan in active_plans:
+        # Get BOM for this plan's model
+        boms = BOM.query.filter_by(model=plan.product_name).all()
+        for b in boms:
+            part_id = b.part_id
+            req_qty = b.qty_per_unit * plan.quantity_planned
+            part_requirements[part_id] = part_requirements.get(part_id, 0) + req_qty
+
+    # 3. Retrieve all parts to compile report
+    parts = Part.query.filter_by(is_active=1).order_by(Part.part_id.asc()).all()
+    
+    data = []
+    for p in parts:
+        req_for_production = int(part_requirements.get(p.part_id, 0))
+        safety = p.safety_stock if p.safety_stock is not None else 0
+        min_lvl = p.min_level if p.min_level is not None else 0
+        max_lvl = p.max_level if p.max_level is not None else 0
+        current_stock = p.stock_qty
+
+        # Status
+        status = "OK"
+        if current_stock <= 0:
+            status = "Out of Stock"
+        elif p.safety_stock and current_stock <= p.safety_stock:
+            status = "Below Safety"
+        elif current_stock <= min_lvl:
+            status = "Low Stock"
+        elif p.max_level and current_stock > p.max_level:
+            status = "Overstock"
+
+        # Shortage relative to upcoming production + safety buffer
+        total_needed = req_for_production + safety
+        shortage = total_needed - current_stock
+        if shortage < 0:
+            shortage = 0
+
+        # Suggested purchase
+        suggested_qty = 0
+        if shortage > 0:
+            if max_lvl > 0:
+                suggested_qty = max_lvl - current_stock
+                if suggested_qty < shortage:
+                    suggested_qty = shortage
+            else:
+                suggested_qty = shortage
+        
+        data.append({
+            "Part Code": p.part_id,
+            "Part Name": p.part_name,
+            "Unit": p.unit or "pcs",
+            "Current Stock": current_stock,
+            "Safety Stock": p.safety_stock if p.safety_stock is not None else "—",
+            "Min Stock": p.min_level,
+            "Max Stock": p.max_level if p.max_level is not None else "—",
+            "Required for Production": req_for_production,
+            "Total Needed (Prod + Safety)": total_needed,
+            "Stock Status": status,
+            "Shortage": shortage,
+            "Suggested Purchase Qty": int(suggested_qty)
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Procurement Plan")
+
+    output.seek(0)
+    filename = f"Procurement_Purchasing_Plan_{datetime.now().strftime('%Y%m%d')}.xlsx"
 
     return send_file(
         output,

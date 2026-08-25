@@ -1,4 +1,5 @@
 {% extends "base_operator.html" %} 
+{% import "components/search_filter.html" as filter_comp %}
 {% block title %}Consumption & Scrap{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -12,22 +13,19 @@
     </button>
 </div>
 
-
 <!-- Summary Cards -->
 <div class="row g-4 mb-4">
     <!-- Discrete Order Selection -->
     <div class="col-12">
         <div class="d-flex align-items-center gap-3 p-3 bg-white rounded shadow-sm border-0">
             <span class="text-muted small fw-medium text-nowrap">Selected Order:</span>
-            <form id="orderSelectForm" method="GET" action="{{ url_for('operator.consumption') }}" class="flex-grow-1" style="max-width: 300px;">
-                <select name="order_id" class="form-select form-select-sm border-light shadow-none bg-light" onchange="this.form.submit()" required>
-                    {% if not order_id %}<option value="">-- No Active Order --</option>{% endif %}
-                    {% for plan in plans %}
-                    <option value="{{ plan.order_id }}" {% if order_id == plan.order_id %}selected{% endif %}>
-                        {{ plan.order_id }} ({{ plan.product_name }})
-                    </option>
-                    {% endfor %}
-                </select>
+            <form id="orderSelectForm" method="GET" action="{{ url_for('operator.consumption') }}" class="flex-grow-1" style="max-width: 340px;">
+                {% set order_options = [] %}
+                {% if not order_id %}{% set _ = order_options.append(('', '-- No Active Order --')) %}{% endif %}
+                {% for plan in plans %}
+                    {% set _ = order_options.append((plan.order_id, plan.order_id ~ ' (' ~ plan.product_name ~ ')')) %}
+                {% endfor %}
+                {{ filter_comp.render_select_dropdown(id="consumptionOrderSelect", name="order_id", options=order_options, selected_value=order_id, auto_submit=True, extra_classes="w-100") }}
             </form>
             {% if not order_id %}
             <span class="badge bg-warning text-dark" style="font-size: 10px;">No production plan selected</span>
@@ -68,21 +66,19 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label text-muted small" style="font-size: 10px;">Part Number</label>
-                    <select name="part_id" class="form-select border-light shadow-none bg-white" required style="font-size: 12px;">
-                        <option value="">Select Part</option>
-                        {% for part in parts %}
-                        <option value="{{ part.part_id }}">{{ part.part_id }}</option>
-                        {% endfor %}
-                    </select>
+                    {% set part_opts = [('', 'Select Part')] %}
+                    {% for part in parts %}
+                      {% set _ = part_opts.append((part.part_id|string, part.part_id)) %}
+                    {% endfor %}
+                    {{ filter_comp.render_select_dropdown(id="entryPartSelect", name="part_id", options=part_opts, selected_value='', extra_classes="w-100") }}
                 </div>
                 <div class="col-md-2">
                     <label class="form-label text-muted small" style="font-size: 10px;">Station</label>
-                    <select name="station_id" class="form-select border-light shadow-none bg-white" required style="font-size: 12px;">
-                        <option value="">Select Station</option>
-                        {% for station in stations %}
-                        <option value="{{ station.station_id }}">{{ station.station_name }}</option>
-                        {% endfor %}
-                    </select>
+                    {% set station_opts = [('', 'Select Station')] %}
+                    {% for station in stations %}
+                      {% set _ = station_opts.append((station.station_id|string, station.station_name)) %}
+                    {% endfor %}
+                    {{ filter_comp.render_select_dropdown(id="entryStationSelect", name="station_id", options=station_opts, selected_value='', extra_classes="w-100") }}
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small" style="font-size: 10px;">Description</label>
@@ -113,11 +109,14 @@
 
 <!-- Consumption Records Table -->
 <div class="card border-0 shadow-sm overflow-hidden mb-4">
-    <div class="p-4 border-bottom bg-white">
+    <div class="p-3 px-4 border-bottom bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="card-title mb-0 fw-medium" style="font-size: 15px">Consumption Records</h5>
+        <div style="min-width: 250px;">
+            {{ filter_comp.render_search_bar(id="consumptionSearchInput", placeholder="Search records by part or description...", show_submit=False) }}
+        </div>
     </div>
     <div class="table-responsive">
-        <table class="table mb-0">
+        <table class="table mb-0" id="consumptionTable">
             <thead>
                 <tr class="text-muted">
                     <th class="ps-4 fw-medium py-3 border-0" style="background-color: #f8fafc !important; font-size: 11px; border-bottom: 2px solid #ffffff !important;">Part Number</th>
@@ -175,7 +174,7 @@
         </table>
     </div>
 </div>
-<div class="d-flex justify-content-between align-items-center mt-3">
+<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
     <div class="text-muted small">Showing {{ records|length }} of {{ records_pagination.total }} record(s)</div>
     <div class="d-flex gap-2">
         <a class="btn btn-sm btn-outline-secondary {% if not records_pagination.has_prev %}disabled{% endif %}" href="{{ url_for('operator.consumption', order_id=order_id, records_page=records_pagination.prev_num) if records_pagination.has_prev else '#' }}">Previous</a>
@@ -183,4 +182,15 @@
         <a class="btn btn-sm btn-outline-secondary {% if not records_pagination.has_next %}disabled{% endif %}" href="{{ url_for('operator.consumption', order_id=order_id, records_page=records_pagination.next_num) if records_pagination.has_next else '#' }}">Next</a>
     </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (typeof window.initTableFilter === "function") {
+      window.initTableFilter({
+        inputId: "consumptionSearchInput",
+        tableId: "consumptionTable"
+      });
+    }
+  });
+</script>
 {% endblock %}
