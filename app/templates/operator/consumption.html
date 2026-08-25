@@ -55,6 +55,25 @@
     </div>
 </div>
 
+<!-- BOM Required Parts Panel (auto-loaded by JS) -->
+{% if order_id %}
+<div class="card border-0 shadow-sm mb-4" id="bom-card">
+    <div class="p-3 px-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <h5 class="card-title mb-0 fw-medium" style="font-size: 14px">BOM — Required Parts for This Order</h5>
+        </div>
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" style="font-size: 10px;">{{ order_id }}</span>
+    </div>
+    <div class="p-3" id="bom-panel">
+        <div class="d-flex align-items-center gap-2 text-muted small py-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Loading BOM...
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Add New Entry Form -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="p-4 border-bottom bg-white">
@@ -191,6 +210,96 @@
         tableId: "consumptionTable"
       });
     }
+
+    // ─── BOM Auto-fill: show required parts when order is selected ───────────
+    var orderSelect = document.getElementById('consumptionOrderSelect');
+    var bomPanel = document.getElementById('bom-panel');
+
+    function loadBOM(orderId) {
+      if (!orderId || !bomPanel) return;
+      fetch('/operator/api/bom/' + orderId)
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          if (!data.bom || data.bom.length === 0) {
+            bomPanel.innerHTML = '<p class="text-muted small mb-0">No BOM configured for this order.</p>';
+            return;
+          }
+          var hasAlert = false;
+          var rows = data.bom.map(function(item, i) {
+            var statusClass = item.status === 'Critical' ? 'danger'
+                            : item.status === 'Low' ? 'warning' : 'success';
+            if (item.status !== 'Adequate') hasAlert = true;
+            return '<tr class="bom-row-enter" style="animation-delay:' + (i * 0.04) + 's">'
+              + '<td class="ps-3 fw-medium small">' + item.id + '</td>'
+              + '<td class="small text-muted">' + item.desc + '</td>'
+              + '<td class="small text-end">' + item.per_unit + '</td>'
+              + '<td class="small text-end fw-medium">' + item.req + '</td>'
+              + '<td class="small text-end">' + item.stock + ' ' + item.unit + '</td>'
+              + '<td class="text-center"><span class="badge bg-' + statusClass + ' bg-opacity-15 text-' + statusClass + '" style="font-size:10px;">' + item.status + '</span></td>'
+              + '</tr>';
+          }).join('');
+          bomPanel.innerHTML = '<div class="table-responsive"><table class="table table-sm mb-0" style="font-size:12px;">'
+            + '<thead><tr class="text-muted" style="font-size:10px;">'
+            + '<th class="ps-3">Part ID</th><th>Description</th>'
+            + '<th class="text-end">Per Unit</th><th class="text-end">Required</th>'
+            + '<th class="text-end">In Stock</th><th class="text-center">Status</th>'
+            + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+          // Play low-stock sound if any part is critical/low
+          if (hasAlert && typeof AlertSound !== 'undefined') {
+            setTimeout(function(){ AlertSound.lowStock(); }, 400);
+          }
+        })
+        .catch(function(){ bomPanel.innerHTML = '<p class="text-muted small mb-0">Could not load BOM.</p>'; });
+    }
+
+    if (orderSelect) {
+      // Load on page init if order already selected
+      var hiddenSelect = orderSelect.closest('.custom-select-wrapper')
+                        ? orderSelect.closest('.custom-select-wrapper').querySelector('.custom-select-hidden')
+                        : null;
+      var initialOrderId = (hiddenSelect || orderSelect).value;
+      if (initialOrderId) loadBOM(initialOrderId);
+
+      // Load on change (custom dropdown fires change on hidden select)
+      var watchEl = hiddenSelect || orderSelect;
+      watchEl.addEventListener('change', function(){ loadBOM(this.value); });
+    }
+
+    // ─── Scrap qty warning sound ─────────────────────────────────────────────
+    var scrapInput = document.querySelector('input[name="scrap_qty"]');
+    if (scrapInput) {
+      scrapInput.addEventListener('input', function() {
+        var val = parseInt(this.value) || 0;
+        if (val > 0) {
+          this.classList.add('border-danger', 'bg-danger', 'bg-opacity-10', 'text-danger');
+          if (typeof AlertSound !== 'undefined' && val > 0) {
+            AlertSound.info();
+          }
+          if (typeof showToast !== 'undefined' && val > 0 && this._lastScrapVal !== val) {
+            this._lastScrapVal = val;
+            showToast('warning', 'Scrap Entered', val + ' unit(s) of scrap will be recorded and deducted from stock.', 3000);
+          }
+        } else {
+          this.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10', 'text-danger');
+        }
+      });
+    }
+
+    // ─── Submit button: add loading state ────────────────────────────────────
+    var recordForm = document.getElementById('recordForm');
+    if (recordForm) {
+      recordForm.addEventListener('submit', function() {
+        var btn = document.querySelector('[form="recordForm"], button[type="submit"]');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-2" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span>Saving...</span>';
+        }
+      });
+    }
   });
 </script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}

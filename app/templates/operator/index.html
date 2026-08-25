@@ -240,6 +240,42 @@
         }
       }
     });
+
+    // ─── Animated number counter for KPI cards ────────────────────────────────
+    function animateCount(el, target, duration) {
+      var start = 0, step = Math.ceil(target / (duration / 16));
+      var timer = setInterval(function() {
+        start += step;
+        if (start >= target) { start = target; clearInterval(timer); }
+        el.textContent = start.toLocaleString() + el.dataset.suffix;
+      }, 16);
+    }
+
+    document.querySelectorAll('[data-count-to]').forEach(function(el) {
+      var target = parseFloat(el.dataset.countTo) || 0;
+      el.dataset.suffix = el.dataset.suffix || '';
+      animateCount(el, target, 800);
+    });
+
+    // ─── Low Stock Alert Sound (play on page load if there are alerts) ────────
+    var lowStockCount = {{ low_stock_alerts }};
+    if (lowStockCount > 0 && typeof AlertSound !== 'undefined') {
+      setTimeout(function() {
+        if (lowStockCount >= 5) {
+          AlertSound.critical();
+          if (typeof showToast !== 'undefined') {
+            showToast('danger', 'Critical: Low Stock Alert',
+              lowStockCount + ' part(s) are below minimum stock level — immediate action required!', 7000);
+          }
+        } else {
+          AlertSound.lowStock();
+          if (typeof showToast !== 'undefined') {
+            showToast('warning', 'Low Stock Warning',
+              lowStockCount + ' part(s) are running low. Check stock status.', 5000);
+          }
+        }
+      }, 800);
+    }
   });
 </script>
 {% endblock %}

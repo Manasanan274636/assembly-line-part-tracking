@@ -9,6 +9,7 @@ from app.models.consumption import Consumption
 from app.models.scrap import Scrap
 from app.models.claim import Claim
 from app.models.activity_log import ActivityLog
+from app.models.stock import Stock
 from app.utils.time_utils import get_thai_today
 from datetime import datetime
 from sqlalchemy import func, or_
@@ -326,10 +327,33 @@ def submit_record():
             )
             db.session.add(new_claim)
 
-        # 4. Update Stock
+        # 4. Update Stock + Log stock_history
         part = Part.query.get(part_id)
         if part:
-            part.stock_qty -= (actual_qty + scrap_qty)
+            total_deduct = actual_qty + scrap_qty
+            part.stock_qty -= total_deduct
+
+            # Log to stock_history (consumption deduction)
+            if actual_qty > 0:
+                hist_cons = Stock(
+                    part_id=part_id,
+                    change_qty=-actual_qty,
+                    change_type="OUT",
+                    reference_id=order_id,
+                    created_by=current_user.user_id
+                )
+                db.session.add(hist_cons)
+
+            # Log scrap deduction separately
+            if scrap_qty > 0:
+                hist_scrap = Stock(
+                    part_id=part_id,
+                    change_qty=-scrap_qty,
+                    change_type="SCRAP",
+                    reference_id=new_cons.consumption_id,
+                    created_by=current_user.user_id
+                )
+                db.session.add(hist_scrap)
 
         # 5. Log Activity
         if scrap_qty > 0:
@@ -348,12 +372,23 @@ def submit_record():
         db.session.add(log)
 
         db.session.commit()
-        flash("Record saved successfully", "success")
+
+        # 6. Flash with alert metadata for sound system
+        if part and scrap_qty > 0 and part.stock_qty <= part.min_level:
+            flash(f"⚠️ Scrap {scrap_qty} units recorded — Part {part_id} is now LOW/CRITICAL!", "danger")
+        elif scrap_qty > 0:
+            flash(f"Scrap {scrap_qty} units of {part_id} recorded successfully", "warning")
+        elif part and part.stock_qty <= (part.min_level or 0):
+            flash(f"Record saved — ⚠️ Part {part_id} stock is LOW ({part.stock_qty} remaining)", "warning")
+        else:
+            flash("Record saved successfully", "success")
+
     except Exception as e:
         db.session.rollback()
         flash(f"Error: {str(e)}", "danger")
 
-    return redirect(url_for("operator.consumption"))
+    return redirect(url_for("operator.consumption", order_id=order_id))
+
 
 
 @bp.route("/stock")
