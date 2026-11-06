@@ -16,13 +16,27 @@ class ProductionPlan(db.Model):
     user = db.relationship("User", backref="production_plans", lazy=True)
 
     @property
+    def total_required_parts(self):
+        """Calculates total required parts across all BOM entries for this plan"""
+        from app.models.bom import BOM
+        boms = BOM.query.filter_by(model=self.product_name).all()
+        if boms and (self.quantity_planned or 0) > 0:
+            return sum((b.qty_per_unit or 0) * self.quantity_planned for b in boms)
+        if self.consumptions:
+            planned_sum = sum(c.planned_qty or 0 for c in self.consumptions)
+            if planned_sum > 0:
+                return planned_sum
+        return self.quantity_planned or 0
+
+    @property
     def progress(self):
         """Calculates production progress percentage"""
         if not self.consumptions:
             return 0
-        total_actual = sum(c.actual_qty for c in self.consumptions)
-        if self.quantity_planned > 0:
-            prog = int((total_actual / self.quantity_planned) * 100)
+        total_actual = sum(c.actual_qty or 0 for c in self.consumptions)
+        target = self.total_required_parts
+        if target > 0:
+            prog = int(round((total_actual / target) * 100))
             return min(prog, 100)
         return 0
 

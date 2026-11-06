@@ -164,7 +164,7 @@
             </div>
           </td>
           <td class="text-center py-3">
-            <div class="d-flex gap-2 justify-content-center">
+            <div class="d-flex gap-2 justify-content-center align-items-center">
               <button
                 class="btn btn-link text-muted p-0 view-bom"
                 data-order="{{ plan.order_id }}"
@@ -182,6 +182,32 @@
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </button>
+              {% if plan.status != 'Completed' %}
+              <button
+                type="button"
+                class="btn btn-link text-success p-0 update-status"
+                data-order="{{ plan.order_id }}"
+                data-status="Completed"
+                title="Mark as Completed"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </button>
+              {% else %}
+              <button
+                type="button"
+                class="btn btn-link text-primary p-0 update-status"
+                data-order="{{ plan.order_id }}"
+                data-status="In Progress"
+                title="Reopen as In Progress"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"></polyline>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+              </button>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -285,23 +311,6 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    // Init Filter Date Picker
-    flatpickr("#dateFilterBtn", {
-      dateFormat: "Y-m-d",
-      disableMobile: "true",
-      onChange: function (selectedDates, dateStr, instance) {
-        applyFilters(dateStr);
-      },
-    });
-
-    const searchInput = document.getElementById("productionSearch");
-    if (searchInput) {
-      searchInput.addEventListener("change", function () {
-        const currentDate = document.getElementById("filterBtnText").dataset.rawDate || "";
-        applyFilters(currentDate);
-      });
-    }
-
     // BOM Toggle Logic
     const bomSection = document.getElementById("bom-section");
     const bomOrderText = document.getElementById("bom-order-id");

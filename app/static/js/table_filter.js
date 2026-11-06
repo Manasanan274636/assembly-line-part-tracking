@@ -66,12 +66,63 @@
       z-index: 9999;
       pointer-events: none;
     }
+
+    /* Layering fix: bring active dropdown and its parent containers to top layer */
+    .has-open-select {
+      z-index: 990 !important;
+      overflow: visible !important;
+    }
+    .has-open-select-rel {
+      position: relative !important;
+    }
+    .custom-select-wrapper.custom-select-open {
+      z-index: 1055 !important;
+    }
+    .custom-select-wrapper.custom-select-open .custom-select-menu {
+      z-index: 1056 !important;
+    }
+    .custom-select-wrapper.custom-select-open .custom-select-trigger[data-tooltip]::after,
+    .custom-select-wrapper.custom-select-open .custom-select-trigger[data-tooltip]::before {
+      display: none !important;
+    }
   `;
   document.head.appendChild(style);
 })();
 
 // 1. Custom UI Select Component Controller
 document.addEventListener('DOMContentLoaded', function() {
+  function closeAllCustomSelects() {
+    document.querySelectorAll('.custom-select-menu').forEach(m => m.classList.add('d-none'));
+    document.querySelectorAll('.custom-select-arrow').forEach(a => a.style.transform = 'rotate(0deg)');
+    document.querySelectorAll('.custom-select-open').forEach(w => w.classList.remove('custom-select-open'));
+    document.querySelectorAll('.has-open-select').forEach(el => {
+      el.classList.remove('has-open-select', 'has-open-select-rel');
+    });
+  }
+
+  function elevateSelectAncestors(wrapper) {
+    wrapper.classList.add('custom-select-open');
+    let parent = wrapper.parentElement;
+    while (parent && parent !== document.body) {
+      if (
+        parent.classList.contains('main-content') ||
+        parent.classList.contains('content-area') ||
+        parent.classList.contains('modal') ||
+        parent.classList.contains('sticky-top') ||
+        parent.tagName === 'HEADER' ||
+        parent.tagName === 'ASIDE' ||
+        parent.tagName === 'MAIN'
+      ) {
+        break;
+      }
+      parent.classList.add('has-open-select');
+      if (window.getComputedStyle(parent).position === 'static') {
+        parent.classList.add('has-open-select-rel');
+      }
+      parent = parent.parentElement;
+    }
+  }
+
   function initCustomSelects() {
     document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
       if (wrapper.dataset.initialized === 'true') return;
@@ -99,12 +150,12 @@ document.addEventListener('DOMContentLoaded', function() {
         e.stopPropagation();
         const isOpen = !menu.classList.contains('d-none');
         
-        // Close all other open custom select menus first
-        document.querySelectorAll('.custom-select-menu').forEach(m => m.classList.add('d-none'));
-        document.querySelectorAll('.custom-select-arrow').forEach(a => a.style.transform = 'rotate(0deg)');
+        // Close all other open custom select menus and reset elevated layers first
+        closeAllCustomSelects();
 
         if (!isOpen) {
           menu.classList.remove('d-none');
+          elevateSelectAncestors(wrapper);
           if (arrow) arrow.style.transform = 'rotate(180deg)';
           if (searchInput) {
             searchInput.value = '';
@@ -156,9 +207,8 @@ document.addEventListener('DOMContentLoaded', function() {
             hiddenSelect.dispatchEvent(new Event('change', { bubbles: true }));
           }
 
-          // Close menu
-          menu.classList.add('d-none');
-          if (arrow) arrow.style.transform = 'rotate(0deg)';
+          // Close menu & reset elevated layers
+          closeAllCustomSelects();
 
           // Auto Submit Form if requested
           if (isAutoSubmit && hiddenSelect.form) {
@@ -169,10 +219,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Close menus when clicking outside
+  // Close menus when clicking outside or pressing Escape
   document.addEventListener('click', () => {
-    document.querySelectorAll('.custom-select-menu').forEach(m => m.classList.add('d-none'));
-    document.querySelectorAll('.custom-select-arrow').forEach(a => a.style.transform = 'rotate(0deg)');
+    closeAllCustomSelects();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAllCustomSelects();
   });
 
   initCustomSelects();

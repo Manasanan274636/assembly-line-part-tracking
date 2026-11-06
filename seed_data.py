@@ -145,6 +145,7 @@ def seed_data():
 
             # Create BOM for the plan (Product Model A)
             bom = BOM(
+                bom_id=1,
                 model="Product Model A",
                 part_id=part.part_id,
                 qty_per_unit=max(1, p_data["req"] // 100)

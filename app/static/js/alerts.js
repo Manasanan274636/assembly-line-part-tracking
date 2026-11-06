@@ -101,8 +101,8 @@ window.AlertSound = {
     tr.low-row td:first-child{border-left:3px solid #f59e0b !important;}
     @keyframes scrapPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4);}50%{box-shadow:0 0 0 6px rgba(239,68,68,0);}}
     .scrap-alert-badge{animation:scrapPulse 1.5s ease-in-out infinite;}
-    .kpi-hover{transition:transform 0.25s ease,box-shadow 0.25s ease;}
-    .kpi-hover:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(15,23,42,0.12) !important;}
+    .kpi-hover{transition:box-shadow 0.25s ease;}
+    .kpi-hover:hover{box-shadow:0 8px 24px rgba(15,23,42,0.08) !important;}
     .bom-row-enter{animation:bomIn 0.3s ease forwards;}
     @keyframes bomIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
   `;
@@ -148,11 +148,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.querySelectorAll('tr[data-status="Low"], tr[data-status="Low Stock"]').forEach(function(row) {
     row.classList.add('low-row');
-  });
-
-  // Add hover lift to all cards
-  document.querySelectorAll('.card.border-0').forEach(function(card) {
-    card.classList.add('kpi-hover');
   });
 
   // Scrap badge pulse

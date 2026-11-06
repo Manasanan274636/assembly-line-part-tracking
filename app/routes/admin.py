@@ -59,10 +59,11 @@ def index():
 
     # 1. KPI Stats
     # Total units in inventory (using stock_qty)
-    total_parts_units = db.session.query(func.sum(Part.stock_qty)).scalar() or 0
+    total_parts_units = db.session.query(func.sum(Part.stock_qty)).filter(Part.is_active == 1).scalar() or 0
     # Number of SKUs low on stock (using min_level)
     low_stock_count = Part.query.filter(
-        Part.stock_qty <= Part.min_level
+        Part.stock_qty <= Part.min_level,
+        Part.is_active == 1,
     ).count()
 
     # Total scrap units (from scrap table)
@@ -72,7 +73,7 @@ def index():
     alerts = []
     # Identify critical items
     critical_items = (
-        Part.query.filter(Part.stock_qty < (Part.min_level / 2))
+        Part.query.filter(Part.stock_qty < (Part.min_level / 2), Part.is_active == 1)
         .limit(3)
         .all()
     )
@@ -123,14 +124,28 @@ def index():
         )
         scrap_dict = {row.part_id: int(row[1]) for row in scrap_query if row[1]}
 
-        # 3.3: Get required_qty from BOM in ONE query
-        bom_query = (
-            db.session.query(BOM.part_id, func.sum(BOM.qty_per_unit))
-            .filter(BOM.part_id.in_(part_ids))
-            .group_by(BOM.part_id)
-            .all()
-        )
-        bom_dict = {row.part_id: int(row[1]) for row in bom_query if row[1]}
+        # 3.3: Get required_qty from active ProductionPlans * BOM (fallback to BOM sum)
+        from app.models.production_plan import ProductionPlan
+        active_plans = ProductionPlan.query.filter_by(status="In Progress").all()
+        bom_dict = {}
+        if active_plans:
+            for plan in active_plans:
+                plan_boms = BOM.query.filter(
+                    BOM.model == plan.product_name,
+                    BOM.part_id.in_(part_ids),
+                ).all()
+                for b in plan_boms:
+                    bom_dict[b.part_id] = bom_dict.get(b.part_id, 0) + int(
+                        (b.qty_per_unit or 0) * (plan.quantity_planned or 0)
+                    )
+        if not bom_dict:
+            bom_query = (
+                db.session.query(BOM.part_id, func.sum(BOM.qty_per_unit))
+                .filter(BOM.part_id.in_(part_ids))
+                .group_by(BOM.part_id)
+                .all()
+            )
+            bom_dict = {row.part_id: int(row[1]) for row in bom_query if row[1]}
     else:
         used_dict, scrap_dict, bom_dict = {}, {}, {}
 
@@ -140,7 +155,7 @@ def index():
         required_qty = bom_dict.get(p.part_id, 0)
 
         status = "OK"
-        if p.stock_qty == 0:
+        if p.stock_qty <= 0:
             status = "CRITICAL"
         elif p.stock_qty <= p.min_level:
             status = "Low Stock"
@@ -157,9 +172,13 @@ def index():
 
     # 4. Chart Data
     top_consumed = (
-        db.session.query(Part.part_name, func.sum(Consumption.actual_qty).label("total"))
+        db.session.query(
+            Part.part_name,
+            func.sum(Consumption.actual_qty).label("total"),
+            func.sum(Consumption.planned_qty).label("planned_total"),
+        )
         .join(Consumption)
-        .group_by(Part.part_id)
+        .group_by(Part.part_id, Part.part_name)
         .order_by(db.desc("total"))
         .limit(6)
         .all()
@@ -167,8 +186,8 @@ def index():
 
     chart_data = {
         "labels": [r[0] for r in top_consumed] if top_consumed else ["No Data"],
-        "actual": [int(r[1]) for r in top_consumed] if top_consumed else [0],
-        "planned": [0] * len(top_consumed) if top_consumed else [0]
+        "actual": [int(r[1] or 0) for r in top_consumed] if top_consumed else [0],
+        "planned": [int(r[2] or 0) for r in top_consumed] if top_consumed else [0],
     }
 
     return render_template(
@@ -358,11 +377,11 @@ def add_part():
     from app.models.activity_log import ActivityLog
     from flask_login import current_user
     
-    sku = request.form.get("sku")
-    name = request.form.get("name")
-    unit = request.form.get("unit", "pcs")
-    min_stock = int(request.form.get("min_stock", 0))
-    stock_qty = int(request.form.get("stock_qty", 0))
+    sku = (request.form.get("sku") or "").strip()
+    name = (request.form.get("name") or "").strip()
+    unit = (request.form.get("unit") or "pcs").strip()
+    min_stock = int(request.form.get("min_stock") or 0)
+    stock_qty = int(request.form.get("stock_qty") or 0)
     
     if Part.query.filter_by(part_id=sku).first():
         flash(f"SKU {sku} already exists.", "danger")
@@ -378,11 +397,24 @@ def add_part():
     )
     db.session.add(new_part)
     
+    current_uid = current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+    if stock_qty > 0:
+        from app.models.stock import Stock
+        db.session.add(
+            Stock(
+                part_id=sku,
+                change_qty=stock_qty,
+                change_type="IN",
+                reference_id="Initial Stock",
+                created_by=current_uid,
+            )
+        )
+
     log = ActivityLog(
         activity_type="Master Data",
         reference_id=sku,
         message=f"Admin added new part: {name} ({sku})",
-        created_by=current_user.user_id if hasattr(current_user, 'user_id') else current_user.id
+        created_by=current_uid
     )
     db.session.add(log)
     
@@ -391,7 +423,7 @@ def add_part():
     return redirect(url_for("admin.parts"))
 
 
-@bp.route("/parts/edit/<part_id>", methods=["POST"])
+@bp.route("/parts/edit/<path:part_id>", methods=["POST"])
 @login_required
 @role_required("admin")
 def edit_part(part_id):
@@ -404,7 +436,7 @@ def edit_part(part_id):
     
     part.part_name = request.form.get("name")
     part.unit = request.form.get("unit")
-    part.min_level = int(request.form.get("min_stock", 0))
+    part.min_level = int(request.form.get("min_stock") or 0)
     
     # We do not allow changing SKU directly as it's the Primary Key in this schema.
     
@@ -421,7 +453,7 @@ def edit_part(part_id):
     return redirect(url_for("admin.parts"))
 
 
-@bp.route("/parts/toggle/<part_id>", methods=["POST"])
+@bp.route("/parts/toggle/<path:part_id>", methods=["POST"])
 @login_required
 @role_required("admin")
 def toggle_part(part_id):
@@ -690,6 +722,7 @@ def bom():
     from app.models.part import Part
     from app.models.activity_log import ActivityLog
     q = (request.args.get("q") or "").strip()
+    sort = (request.args.get("sort") or "all").strip()
 
     # Query all parts for the select dropdown
     parts = Part.query.filter_by(is_active=1).order_by(Part.part_name).all()
@@ -742,6 +775,7 @@ def bom():
         bom_meta=bom_meta,
         parts=parts,
         q=q,
+        sort=sort,
     )
 
 
@@ -845,7 +879,7 @@ def add_bom_entry():
     return redirect(url_for("admin.bom"))
 
 
-@bp.route("/bom/edit/<model_name>/<part_id>", methods=["POST"])
+@bp.route("/bom/edit/<model_name>/<path:part_id>", methods=["POST"])
 @login_required
 @role_required("admin")
 def edit_bom_entry(model_name, part_id):
@@ -854,7 +888,7 @@ def edit_bom_entry(model_name, part_id):
     from flask_login import current_user
 
     entry = BOM.query.filter_by(model=model_name, part_id=part_id).first_or_404()
-    qty = int(request.form.get("qty_per_unit", 1))
+    qty = int(request.form.get("qty_per_unit") or 1)
 
     if qty <= 0:
         flash("Quantity per unit must be greater than zero.", "danger")
@@ -875,7 +909,7 @@ def edit_bom_entry(model_name, part_id):
     return redirect(url_for("admin.bom"))
 
 
-@bp.route("/bom/model/<model_name>/edit", methods=["POST"])
+@bp.route("/bom/model/<path:model_name>/edit", methods=["POST"])
 @login_required
 @role_required("admin")
 def edit_bom_model(model_name):
@@ -967,7 +1001,7 @@ def edit_bom_model(model_name):
     return redirect(url_for("admin.bom"))
 
 
-@bp.route("/bom/delete/<model_name>/<part_id>", methods=["POST"])
+@bp.route("/bom/delete/<model_name>/<path:part_id>", methods=["POST"])
 @login_required
 @role_required("admin")
 def delete_bom_entry(model_name, part_id):
@@ -1005,19 +1039,18 @@ def add_production():
     from flask_login import current_user
     import datetime
     
-    order_id = request.form.get("order_id")
-    product_name = request.form.get("product_name")
-    qty = int(request.form.get("quantity", 0))
+    order_id = (request.form.get("order_id") or "").strip()
+    product_name = (request.form.get("product_name") or "").strip()
+    qty = int(request.form.get("quantity") or 0)
     start_date_str = request.form.get("start_date")
     end_date_str = request.form.get("end_date") or start_date_str
     
     if ProductionPlan.query.filter_by(order_id=order_id).first():
         flash(f"Order ID {order_id} already exists.", "danger")
-        # Ensure 'admin.production' route exists. Fallback if it is named differently:
         try:
             return redirect(url_for("admin.production"))
         except Exception:
-            return redirect(url_for("admin.dashboard"))
+            return redirect(url_for("admin.index"))
         
     start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
     end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -1050,7 +1083,7 @@ def add_production():
     try:
         return redirect(url_for("admin.production"))
     except Exception:
-        return redirect(url_for("admin.dashboard"))
+        return redirect(url_for("admin.index"))
 
 
 @bp.route("/data-entry")
@@ -1060,8 +1093,8 @@ def data_entry():
     from app.models.station import Station
     from app.models.part import Part
 
-    stations = Station.query.all()
-    parts = Part.query.all()
+    stations = Station.query.filter_by(is_active=1).order_by(Station.station_name.asc()).all()
+    parts = Part.query.filter_by(is_active=1).order_by(Part.part_name.asc()).all()
     return render_template("admin/data_entry.html", stations=stations, parts=parts)
 
 
@@ -1072,13 +1105,25 @@ def submit_data():
     from app.models.consumption import Consumption
     from app.models.production_plan import ProductionPlan
     from app.models.part import Part
+    from app.models.station import Station
+    from app.models.stock import Stock
     from app.models.activity_log import ActivityLog
     from flask_login import current_user
 
-    station_id = request.form.get("station_id")
-    part_id = request.form.get("part_id")
-    quantity_used = int(request.form.get("quantity_used", 0))
-    scrap_qty = int(request.form.get("scrap_qty", 0))
+    station_id = (request.form.get("station_id") or "").strip()
+    part_id = (request.form.get("part_id") or "").strip()
+    quantity_used = int(request.form.get("quantity_used") or 0)
+    scrap_qty = int(request.form.get("scrap_qty") or 0)
+
+    if not station_id or not part_id:
+        flash("Please select both a station and a part before submitting.", "danger")
+        return redirect(url_for("admin.data_entry"))
+
+    station = Station.query.get(station_id)
+    part = Part.query.get(part_id)
+    if not station or not part:
+        flash("Selected station or part was not found.", "danger")
+        return redirect(url_for("admin.data_entry"))
 
     # Logic: Find an active production plan
     plan = ProductionPlan.query.filter_by(status="In Progress").first()
@@ -1088,20 +1133,29 @@ def submit_data():
 
     new_consumption = Consumption(
         order_id=plan.order_id,
-        part_id=part_id,
-        station_id=station_id,
+        part_id=part.part_id,
+        station_id=station.station_id,
         actual_qty=quantity_used,
         planned_qty=quantity_used,
         recorded_by=current_user.user_id
     )
 
     # Update part stock
-    part = Part.query.get(part_id)
-    if part:
-        part.stock_qty -= (quantity_used + scrap_qty)
+    part.stock_qty -= (quantity_used + scrap_qty)
         
     db.session.add(new_consumption)
-    db.session.flush() # Get consumption ID for scrap
+    db.session.flush()  # Get consumption ID for scrap
+
+    if quantity_used > 0:
+        db.session.add(
+            Stock(
+                part_id=part.part_id,
+                change_qty=-quantity_used,
+                change_type="OUT",
+                reference_id=plan.order_id,
+                created_by=current_user.user_id,
+            )
+        )
 
     if scrap_qty > 0:
         from app.models.scrap import Scrap
@@ -1111,6 +1165,15 @@ def submit_data():
             reason="Manual Entry"
         )
         db.session.add(new_scrap)
+        db.session.add(
+            Stock(
+                part_id=part.part_id,
+                change_qty=-scrap_qty,
+                change_type="SCRAP",
+                reference_id=str(new_consumption.consumption_id),
+                created_by=current_user.user_id,
+            )
+        )
 
     # Log activity
     log = ActivityLog(
@@ -1147,6 +1210,7 @@ def upload_excel():
         from app.models.consumption import Consumption
         from app.models.production_plan import ProductionPlan
         from app.models.scrap import Scrap
+        from app.models.stock import Stock
         from app.models.activity_log import ActivityLog
         from flask_login import current_user
 
@@ -1173,8 +1237,10 @@ def upload_excel():
                 plan = ProductionPlan.query.order_by(ProductionPlan.order_id.desc()).first()
 
             if plan:
-                qty = int(row.get("QuantityUsed", 0))
-                scrap_qty = int(row.get("ScrapQty", 0))
+                raw_qty = row.get("QuantityUsed", 0)
+                raw_scrap = row.get("ScrapQty", 0)
+                qty = int(raw_qty) if pd.notna(raw_qty) else 0
+                scrap_qty = int(raw_scrap) if pd.notna(raw_scrap) else 0
 
                 cons = Consumption(
                     station_id=station.station_id,
@@ -1187,6 +1253,17 @@ def upload_excel():
                 db.session.add(cons)
                 db.session.flush()
 
+                if qty > 0:
+                    db.session.add(
+                        Stock(
+                            part_id=part.part_id,
+                            change_qty=-qty,
+                            change_type="OUT",
+                            reference_id=plan.order_id,
+                            created_by=current_user.user_id,
+                        )
+                    )
+
                 if scrap_qty > 0:
                     new_scrap = Scrap(
                         consumption_id=cons.consumption_id,
@@ -1194,6 +1271,15 @@ def upload_excel():
                         reason="Excel Upload"
                     )
                     db.session.add(new_scrap)
+                    db.session.add(
+                        Stock(
+                            part_id=part.part_id,
+                            change_qty=-scrap_qty,
+                            change_type="SCRAP",
+                            reference_id=str(cons.consumption_id),
+                            created_by=current_user.user_id,
+                        )
+                    )
                 
                 part.stock_qty -= (qty + scrap_qty)
                 success_count += 1
@@ -1373,6 +1459,57 @@ def stock():
     )
 
 
+@bp.route("/stock/adjust/<path:part_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def adjust_stock(part_id):
+    from app.models.part import Part
+    from app.models.stock import Stock
+    from app.models.activity_log import ActivityLog
+
+    part = Part.query.get(part_id)
+    if not part:
+        flash("Part not found.", "danger")
+        return redirect(url_for("admin.stock"))
+
+    change_type = request.form.get("change_type", "IN")
+    qty = int(request.form.get("qty") or 0)
+    reason = (request.form.get("reason") or "Manual Stock Adjustment").strip()
+
+    if qty <= 0:
+        flash("Adjustment quantity must be greater than zero.", "danger")
+        return redirect(url_for("admin.stock"))
+
+    if change_type == "OUT":
+        signed_qty = -qty
+    else:
+        change_type = "IN"
+        signed_qty = qty
+
+    part.stock_qty += signed_qty
+
+    db.session.add(
+        Stock(
+            part_id=part.part_id,
+            change_qty=signed_qty,
+            change_type=change_type,
+            reference_id=reason[:50],
+            created_by=current_user.user_id,
+        )
+    )
+    db.session.add(
+        ActivityLog(
+            activity_type="Stock Adjustment",
+            reference_id=part.part_id,
+            message=f"Admin adjusted stock for {part.part_id} ({'+' if signed_qty > 0 else ''}{signed_qty} {part.unit}): {reason}",
+            created_by=current_user.user_id,
+        )
+    )
+    db.session.commit()
+    flash(f"Adjusted stock for {part.part_name} ({part.part_id}) successfully.", "success")
+    return redirect(url_for("admin.stock"))
+
+
 @bp.route("/claims/update/<claim_id>", methods=["POST"])
 @login_required
 @role_required("admin")
@@ -1498,15 +1635,12 @@ def reports():
     part_id = request.args.get("part_id")
 
     records_query = _get_report_data(start_date_str, end_date_str, station_id, part_id)
+    all_filtered_records = records_query.all()
     reports_page = _paginate_query(records_query, per_page=20, page_param="page")
     records = reports_page["items"]
 
-    # Process records for template
+    # Process paginated records for template table
     report_data = []
-    total_consumption = 0
-    total_scrap = 0
-    total_efficiency_sum = 0
-
     for r in records:
         used = int(r.quantity_used or 0)
         scrap = int(r.scrap_qty or 0)
@@ -1526,11 +1660,20 @@ def reports():
             }
         )
 
+    # Calculate KPI metrics across all matching records (not just current page)
+    total_consumption = 0
+    total_scrap = 0
+    total_efficiency_sum = 0.0
+    for r in all_filtered_records:
+        used = int(r.quantity_used or 0)
+        scrap = int(r.scrap_qty or 0)
+        total_qty = used + scrap
+        eff = round(float(used / total_qty * 100), 1) if total_qty > 0 else 0.0
         total_consumption += used
         total_scrap += scrap
         total_efficiency_sum += eff
 
-    avg_efficiency = (total_efficiency_sum / len(records)) if records else 0
+    avg_efficiency = (total_efficiency_sum / len(all_filtered_records)) if all_filtered_records else 0
 
     # Get dropdown options
     all_stations = Station.query.all()
@@ -1539,7 +1682,7 @@ def reports():
     return render_template(
         "admin/reports.html",
         report_data=report_data,
-        total_records=len(records),
+        total_records=reports_page["total"],
         total_consumption=total_consumption,
         total_scrap=total_scrap,
         avg_efficiency=round(avg_efficiency, 1),
@@ -1633,7 +1776,8 @@ def export_execution():
         ).filter(Consumption.order_id == p.order_id).scalar() or 0
         scrap_qty = int(scrap_qty)
 
-        completion = round((actual_qty / p.quantity_planned) * 100, 1) if p.quantity_planned > 0 else 0.0
+        target_parts = p.total_required_parts
+        completion = round((actual_qty / target_parts) * 100, 1) if target_parts > 0 else 0.0
         if completion > 100:
             completion = 100.0
 

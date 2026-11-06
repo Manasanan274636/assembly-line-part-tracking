@@ -78,9 +78,53 @@
                 {% endif %}
               </td>
               <td class="text-end pe-4">
-                <button class="btn btn-sm btn-outline-primary">Adjust</button>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#adjustStockModal{{ loop.index }}">Adjust</button>
               </td>
             </tr>
+
+            <!-- Adjust Stock Modal -->
+            <div class="modal fade" id="adjustStockModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: visible;">
+                  <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="modal-title fw-semibold" style="color: #0f172a;">Adjust Stock: {{ item.part_name }} ({{ item.part_id }})</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body p-4 text-start" style="overflow: visible;">
+                    <form action="{{ url_for('admin.adjust_stock', part_id=item.part_id) }}" method="POST">
+                      <p class="text-muted small mb-3">
+                        Current Stock: <strong>{{ item.stock_qty }} {{ item.unit }}</strong>
+                      </p>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Adjustment Type</label>
+                        {{ filter_comp.render_select_dropdown(
+                          id='adjustTypeSelect_' ~ loop.index,
+                          name='change_type',
+                          options=[
+                            {'value': 'IN',  'label': 'Add Stock (+ IN)'},
+                            {'value': 'OUT', 'label': 'Deduct Stock (- OUT)'}
+                          ],
+                          selected_value='IN',
+                          extra_classes='w-100 modal-dropdown'
+                        ) }}
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Quantity ({{ item.unit }}) *</label>
+                        <input type="number" name="qty" min="1" value="1" required class="form-control bg-light border-0 p-3" style="border-radius: 8px; font-size: 14px;">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Reason / Reference</label>
+                        <input type="text" name="reason" value="Manual Adjustment" class="form-control bg-light border-0 p-3" style="border-radius: 8px; font-size: 14px;">
+                      </div>
+                      <div class="d-flex gap-2 justify-content-end mt-4">
+                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px;">Apply Adjustment</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
             {% endfor %}
           </tbody>
         </table>
@@ -252,8 +296,8 @@
   document.addEventListener("DOMContentLoaded", function () {
     if (typeof window.initTableFilter === "function") {
       window.initTableFilter({ inputId: "stockSearchInput", dropdownId: "stockStatusFilter", tableId: "inventoryTable" });
-      window.initTableFilter({ inputId: "stockSearchInput", dropdownId: "stockStatusFilter", tableId: "historyTable" });
-      window.initTableFilter({ inputId: "stockSearchInput", dropdownId: "stockStatusFilter", tableId: "claimsTable" });
+      window.initTableFilter({ inputId: "stockSearchInput", tableId: "historyTable" });
+      window.initTableFilter({ inputId: "stockSearchInput", tableId: "claimsTable" });
     }
   });
 </script>

@@ -261,8 +261,8 @@
 
       <div class="user-profile">
         <div class="user-meta">
-          <span class="user-name">John Operator</span>
-          <span class="user-role">Line Operator</span>
+          <span class="user-name">{{ current_user.username if current_user.is_authenticated else 'Operator' }}</span>
+          <span class="user-role">Line {{ (current_user.role or 'Operator')|capitalize }}</span>
         </div>
         <a
           href="{{ url_for('auth.logout') }}"

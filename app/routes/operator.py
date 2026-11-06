@@ -30,10 +30,10 @@ def index():
         ProductionPlan.start_date == today
     ).scalar() or 0
 
-    # 2. Efficiency Rate: (Actual Qty / Planned Qty) x 100 for active orders
+    # 2. Efficiency Rate: (Actual Qty / Total Required Parts) x 100 for active orders
     active_plans = ProductionPlan.query.filter_by(status="In Progress").all()
     if active_plans:
-        total_planned = sum(p.quantity_planned for p in active_plans)
+        total_planned = sum(p.total_required_parts for p in active_plans)
         total_actual = db.session.query(func.sum(Consumption.actual_qty)).filter(
             Consumption.order_id.in_([p.order_id for p in active_plans])
         ).scalar() or 0
@@ -43,9 +43,9 @@ def index():
     else:
         efficiency_rate = 0.0
 
-    # 3. Low Stock Alerts (Parts where stock < min_level)
+    # 3. Low Stock Alerts (Parts where stock <= min_level)
     low_stock_alerts = Part.query.filter(
-        Part.stock_qty < Part.min_level, 
+        Part.stock_qty <= Part.min_level, 
         Part.is_active == 1
     ).count()
 
@@ -208,7 +208,7 @@ def consumption():
 
     if order_id:
         selected_plan = ProductionPlan.query.get(order_id)
-        total_planned = selected_plan.quantity_planned if selected_plan else 0
+        total_planned = selected_plan.total_required_parts if selected_plan else 0
         total_actual = db.session.query(func.sum(Consumption.actual_qty)).filter_by(order_id=order_id).scalar() or 0
         total_scrap = db.session.query(func.sum(Scrap.scrap_qty)).join(Consumption).filter(Consumption.order_id == order_id).scalar() or 0
         records_query = (
@@ -284,21 +284,25 @@ def update_plan_status():
 @login_required
 @role_required("operator")
 def submit_record():
-    order_id = request.form.get("order_id")
-    part_id = request.form.get("part_id")
-    station_id = request.form.get("station_id")
-    planned_qty = int(request.form.get("planned_qty", 0))
-    actual_qty = int(request.form.get("actual_qty", 0))
-    scrap_qty = int(request.form.get("scrap_qty", 0))
-    claim_qty = int(request.form.get("claim_qty", 0))
-    reason = request.form.get("reason", "Daily Production")
+    order_id = (request.form.get("order_id") or "").strip()
+    part_id = (request.form.get("part_id") or "").strip()
+    station_id = (request.form.get("station_id") or "").strip()
+    planned_qty = int(request.form.get("planned_qty") or 0)
+    actual_qty = int(request.form.get("actual_qty") or 0)
+    scrap_qty = int(request.form.get("scrap_qty") or 0)
+    claim_qty = int(request.form.get("claim_qty") or 0)
+    reason = request.form.get("reason") or "Daily Production"
+
+    if not order_id or not part_id or not station_id:
+        flash("Please select an order, part, and station before saving.", "warning")
+        return redirect(url_for("operator.consumption", order_id=order_id))
 
     try:
         # 1. Record Consumption
         new_cons = Consumption(
             order_id=order_id,
             part_id=part_id,
-            station_id=station_id,
+            station_id=int(station_id),
             planned_qty=planned_qty,
             actual_qty=actual_qty,
             recorded_by=current_user.user_id
@@ -350,7 +354,7 @@ def submit_record():
                     part_id=part_id,
                     change_qty=-scrap_qty,
                     change_type="SCRAP",
-                    reference_id=new_cons.consumption_id,
+                    reference_id=str(new_cons.consumption_id),
                     created_by=current_user.user_id
                 )
                 db.session.add(hist_scrap)
@@ -390,6 +394,50 @@ def submit_record():
     return redirect(url_for("operator.consumption", order_id=order_id))
 
 
+@bp.route("/consumption/delete/<int:consumption_id>", methods=["POST"])
+@login_required
+@role_required("operator")
+def delete_consumption(consumption_id):
+    cons = Consumption.query.get_or_404(consumption_id)
+    order_id = cons.order_id
+    part = Part.query.get(cons.part_id)
+
+    try:
+        scrap_total = sum(s.scrap_qty or 0 for s in cons.scraps)
+        restore_qty = (cons.actual_qty or 0) + scrap_total
+
+        if part and restore_qty > 0:
+            part.stock_qty += restore_qty
+            db.session.add(
+                Stock(
+                    part_id=part.part_id,
+                    change_qty=restore_qty,
+                    change_type="IN",
+                    reference_id=f"Revert #{consumption_id}",
+                    created_by=current_user.user_id,
+                )
+            )
+
+        for s in list(cons.scraps):
+            db.session.delete(s)
+
+        db.session.delete(cons)
+        db.session.add(
+            ActivityLog(
+                activity_type="Record Removed",
+                reference_id=order_id,
+                message=f"Operator removed consumption record #{consumption_id} ({cons.part_id})",
+                created_by=current_user.user_id,
+            )
+        )
+        db.session.commit()
+        flash("Consumption record removed and stock restored.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error removing record: {str(e)}", "danger")
+
+    return redirect(url_for("operator.consumption", order_id=order_id))
+
 
 @bp.route("/stock")
 @login_required
@@ -397,12 +445,19 @@ def submit_record():
 def stock():
     from app.models.part import Part
     
-    parts = Part.query.order_by(Part.stock_qty.asc()).all()
+    parts = Part.query.filter_by(is_active=1).order_by(Part.stock_qty.asc()).all()
     
-    # Calculate summary counts
-    critical_count = Part.query.filter(Part.stock_qty <= 0).count()
-    low_count = Part.query.filter((Part.stock_qty <= Part.min_level) & (Part.stock_qty > 0)).count()
-    adequate_count = Part.query.filter(Part.stock_qty > Part.min_level).count()
+    # Calculate summary counts matching table status rules
+    critical_count = sum(
+        1 for p in parts if p.stock_qty <= 0 or (p.safety_stock and p.stock_qty <= p.safety_stock)
+    )
+    low_count = sum(
+        1 for p in parts
+        if p.stock_qty > 0
+        and not (p.safety_stock and p.stock_qty <= p.safety_stock)
+        and p.stock_qty <= p.min_level
+    )
+    adequate_count = len(parts) - critical_count - low_count
     
     return render_template(
         "operator/stock.html", 

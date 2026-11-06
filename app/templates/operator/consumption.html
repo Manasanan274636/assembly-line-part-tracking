@@ -101,11 +101,11 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small" style="font-size: 10px;">Description</label>
-                    <input type="text" class="form-control border-light bg-light" placeholder="Part description" readonly style="font-size: 12px;">
+                    <input type="text" id="entryPartDesc" class="form-control border-light bg-light" placeholder="Part description" readonly style="font-size: 12px;">
                 </div>
                 <div class="col-md-1">
                     <label class="form-label text-muted small" style="font-size: 10px;">Planned Qty</label>
-                    <input type="number" name="planned_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
+                    <input type="number" id="entryPlannedQty" name="planned_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
                 </div>
                 <div class="col-md-1">
                     <label class="form-label text-muted small" style="font-size: 10px;">Actual Qty</label>
@@ -116,7 +116,7 @@
                     <input type="number" name="scrap_qty" class="form-control border-light shadow-none" value="0" min="0" style="font-size: 12px;">
                 </div>
                 <div class="col-md-1">
-                    <button type="button" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="border-radius: 6px;">
+                    <button type="submit" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="border-radius: 6px;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         <span class="small fw-medium">Add</span>
                     </button>
@@ -173,9 +173,11 @@
                     </td>
                     <td class="text-muted py-3">{{ record.part.unit or 'pcs' }}</td>
                     <td class="text-center py-3">
-                        <button class="btn btn-link text-danger p-0" title="Remove Record">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                        </button>
+                        <form action="{{ url_for('operator.delete_consumption', consumption_id=record.consumption_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this consumption record and restore stock?');">
+                            <button type="submit" class="btn btn-link text-danger p-0" title="Remove Record">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% else %}
@@ -282,6 +284,20 @@
         } else {
           this.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10', 'text-danger');
         }
+      });
+    }
+
+    // ─── Auto-fill Part Description when Part Number is selected ─────────────
+    var partDescriptions = {
+      {% for part in parts %}
+      {{ part.part_id|tojson }}: {{ part.part_name|tojson }},
+      {% endfor %}
+    };
+    var partSelectEl = document.getElementById('entryPartSelect');
+    var partDescEl = document.getElementById('entryPartDesc');
+    if (partSelectEl && partDescEl) {
+      partSelectEl.addEventListener('change', function() {
+        partDescEl.value = partDescriptions[this.value] || '';
       });
     }
 

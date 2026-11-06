@@ -39,6 +39,7 @@
   {% if bom_grouped %}
       <div id="bomCardsContainer" class="row">
       {% for model, entries in bom_grouped.items() %}
+          {% set model_idx = loop.index %}
           <div
             class="col-md-6 mb-4 bom-model-card"
             data-model="{{ model|lower }}"
@@ -69,7 +70,7 @@
                         </div>
                         <div class="d-flex flex-column align-items-end gap-2">
                           <span class="badge" style="background-color: #f1f5f9; color: #475569;">{{ entries|length }} Parts</span>
-                          <button type="button" class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editBomModelModal{{ loop.index }}" style="border-radius: 8px;">
+                          <button type="button" class="btn btn-sm btn-outline-primary px-3" data-bs-toggle="modal" data-bs-target="#editBomModelModal{{ model_idx }}" style="border-radius: 8px;">
                             Edit Model
                           </button>
                         </div>
@@ -96,7 +97,7 @@
                                   </td>
                                   <td class="px-4 py-3 text-end">
                                       <div class="d-flex justify-content-end gap-2">
-                                          <button type="button" class="btn btn-sm btn-outline-primary px-2" data-bs-toggle="modal" data-bs-target="#editBomModal{{ model|replace(' ', '_') }}{{ loop.index }}" style="border-radius: 6px;">
+                                          <button type="button" class="btn btn-sm btn-outline-primary px-2" data-bs-toggle="modal" data-bs-target="#editBomModal_{{ model_idx }}_{{ loop.index }}" style="border-radius: 6px;">
                                               Edit
                                           </button>
                                           <form action="{{ url_for('admin.delete_bom_entry', model_name=model, part_id=item.part_id) }}" method="POST" class="m-0" onsubmit="return confirm('Remove part {{ item.part_id }} from {{ model }} BOM?');">
@@ -107,7 +108,7 @@
                                       </div>
                                   </td>
                               </tr>
-                              <div class="modal fade" id="editBomModal{{ model|replace(' ', '_') }}{{ loop.index }}" tabindex="-1" aria-hidden="true">
+                              <div class="modal fade" id="editBomModal_{{ model_idx }}_{{ loop.index }}" tabindex="-1" aria-hidden="true">
                                   <div class="modal-dialog modal-dialog-centered">
                                       <div class="modal-content border-0 shadow" style="border-radius: 16px; overflow: hidden;">
                                           <div class="modal-header border-0 pb-0 pt-4 px-4">
@@ -383,12 +384,14 @@
 
     function bindPartSearchInputs(scope) {
       scope.querySelectorAll(".bom-part-search").forEach((input) => {
-        input.onchange = function () {
+        const syncHidden = function () {
           const hidden = this.parentElement.querySelector('input[type="hidden"][name="part_id"]');
           if (hidden) {
             hidden.value = normalizePartValue(this.value);
           }
         };
+        input.onchange = syncHidden;
+        input.oninput = syncHidden;
       });
     }
 
