@@ -33,9 +33,25 @@ class Config:
         }
 
         # SSL options might be needed for TiDB Cloud
-        if os.environ.get("DB_SSL_CA"):
+        BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+        PROJECT_ROOT = os.path.dirname(BASE_DIR)
+        default_ca = os.path.join(BASE_DIR, "isrgrootx1.pem")
+        env_ca = os.environ.get("DB_SSL_CA")
+
+        resolved_ca = None
+        if env_ca:
+            if os.path.isabs(env_ca) and os.path.exists(env_ca):
+                resolved_ca = env_ca
+            else:
+                candidate = os.path.join(PROJECT_ROOT, env_ca)
+                if os.path.exists(candidate):
+                    resolved_ca = candidate
+        if not resolved_ca and os.path.exists(default_ca):
+            resolved_ca = default_ca
+
+        if resolved_ca:
             SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
-                "ssl": {"ca": os.environ.get("DB_SSL_CA")}
+                "ssl": {"ca": resolved_ca}
             }
     else:
         BASE_DIR = os.path.abspath(os.path.dirname(__file__))

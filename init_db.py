@@ -30,6 +30,10 @@ def ensure_database_exists():
     password = os.environ.get("DB_PASSWORD")
     db_name = os.environ.get("DB_NAME") or "assembly_tracking"
     ssl_ca = os.environ.get("DB_SSL_CA")
+    project_root = os.path.abspath(os.path.dirname(__file__))
+    default_ca = os.path.join(project_root, "app", "isrgrootx1.pem")
+    if not ssl_ca or not os.path.exists(ssl_ca):
+        ssl_ca = default_ca if os.path.exists(default_ca) else None
 
     if not host or not user:
         return
